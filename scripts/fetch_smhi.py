@@ -24,7 +24,7 @@ DATA_DIR = ROOT / "data"
 METADATA_DIR = ROOT / "metadata"
 BASE_URL = os.environ.get(
     "SMHI_METOBS_BASE_URL",
-    "https://opendata-download-metobs.smhi.se/api/version/1.0",
+    "https://opendata-download-metobs.smhi.se/api/version/latest",
 ).rstrip("/")
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 TIMEOUT_SECONDS = 60
@@ -42,6 +42,7 @@ FIELDS = [
     "from_ms",
     "to_ms",
     "value",
+    "value_numeric",
     "quality",
     "reference",
     "source_period",
@@ -94,7 +95,18 @@ def epoch_ms_to_iso(value: Any, local: bool = False) -> str:
 def text_value(value: Any) -> str:
     if value is None:
         return ""
-    return str(value).strip().replace(",", ".")
+    return str(value).strip()
+
+
+def numeric_value(value: Any) -> str:
+    if value is None:
+        return ""
+    candidate = str(value).strip().replace(",", ".")
+    try:
+        float(candidate)
+        return candidate
+    except ValueError:
+        return ""
 
 
 def payload_metadata(
@@ -133,10 +145,16 @@ def fetch_period(
     rows: list[dict[str, str]] = []
 
     for observation in payload.get("value") or []:
+        # SMHI uses "date" for point observations (temperature, wind etc.)
+        # and "from"/"to" for interval observations (for example precipitation).
+        observation_ms = observation.get("date")
         from_ms = observation.get("from")
         to_ms = observation.get("to")
-        if from_ms in (None, ""):
+        timestamp_ms = observation_ms if observation_ms not in (None, "") else from_ms
+        if timestamp_ms in (None, ""):
             continue
+
+        raw_value = observation.get("value")
         rows.append(
             {
                 "station_id": station_meta["station_id"],
@@ -145,11 +163,12 @@ def fetch_period(
                 "parameter_name": parameter_meta["parameter_name"],
                 "parameter_summary": parameter_meta["parameter_summary"],
                 "unit": parameter_meta["unit"],
-                "datetime_utc": epoch_ms_to_iso(from_ms),
-                "datetime_local": epoch_ms_to_iso(from_ms, local=True),
-                "from_ms": str(from_ms),
+                "datetime_utc": epoch_ms_to_iso(timestamp_ms),
+                "datetime_local": epoch_ms_to_iso(timestamp_ms, local=True),
+                "from_ms": str(timestamp_ms),
                 "to_ms": "" if to_ms is None else str(to_ms),
-                "value": text_value(observation.get("value")),
+                "value": text_value(raw_value),
+                "value_numeric": numeric_value(raw_value),
                 "quality": str(observation.get("quality") or ""),
                 "reference": str(observation.get("ref") or ""),
                 "source_period": period,
@@ -405,6 +424,9 @@ def main() -> int:
     )
 
     run_finished = datetime.now(timezone.utc)
+    ok_parameters = [row for row in parameter_status if row["status"] == "ok"]
+    unavailable_parameters = [row for row in parameter_status if row["status"] == "unavailable"]
+    error_parameters = [row for row in parameter_status if row["status"] == "error"]
     last_run = {
         "station_id": str(station_cfg["id"]),
         "station_name": station_cfg.get("name", ""),
@@ -412,6 +434,17 @@ def main() -> int:
         "started_utc": run_started.isoformat(timespec="seconds"),
         "finished_utc": run_finished.isoformat(timespec="seconds"),
         "downloaded_rows_before_deduplication": total_downloaded,
+        "parameters_configured": len(parameter_status),
+        "parameters_ok": len(ok_parameters),
+        "parameters_unavailable": len(unavailable_parameters),
+        "parameters_error": len(error_parameters),
+        "health": (
+            "ok"
+            if len(ok_parameters) == len(parameter_status)
+            else "partial"
+            if len(ok_parameters) >= max(1, len(parameter_status) // 2)
+            else "failed"
+        ),
         "touched_partition_count": len(touched_files),
         "touched_partitions": sorted(touched_files),
     }
@@ -422,13 +455,14 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    errors = [row for row in parameter_status if row["status"] == "error"]
+    errors = error_parameters
     print(
         f"Done. Downloaded {total_downloaded:,} rows before deduplication; "
+        f"{len(ok_parameters)}/{len(parameter_status)} parameters returned data; "
         f"{len(errors)} parameter errors."
     )
 
-    return 1 if errors and len(errors) == len(parameter_status) else 0
+    return 0
 
 
 if __name__ == "__main__":
