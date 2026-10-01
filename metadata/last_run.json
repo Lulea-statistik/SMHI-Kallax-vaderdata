@@ -1,12 +1,29 @@
 {
   "station_id": "162860",
   "station_name": "Luleå-Kallax Flygplats",
-  "mode": "bootstrap",
-  "started_utc": "2026-10-01T11:02:46+00:00",
-  "finished_utc": "2026-10-01T11:02:52+00:00",
-  "downloaded_rows_before_deduplication": 130,
-  "touched_partition_count": 1,
+  "mode": "refresh-all",
+  "started_utc": "2026-10-01T11:21:30+00:00",
+  "finished_utc": "2026-10-01T11:21:35+00:00",
+  "downloaded_rows_before_deduplication": 34477,
+  "parameters_configured": 13,
+  "parameters_ok": 13,
+  "parameters_unavailable": 0,
+  "parameters_error": 0,
+  "health": "ok",
+  "touched_partition_count": 13,
   "touched_partitions": [
-    "data/parameter_5/2026.csv"
+    "data/parameter_1/2026.csv",
+    "data/parameter_12/2026.csv",
+    "data/parameter_13/2026.csv",
+    "data/parameter_16/2026.csv",
+    "data/parameter_21/2026.csv",
+    "data/parameter_3/2026.csv",
+    "data/parameter_39/2026.csv",
+    "data/parameter_4/2026.csv",
+    "data/parameter_5/2026.csv",
+    "data/parameter_6/2026.csv",
+    "data/parameter_7/2026.csv",
+    "data/parameter_8/2026.csv",
+    "data/parameter_9/2026.csv"
   ]
 }

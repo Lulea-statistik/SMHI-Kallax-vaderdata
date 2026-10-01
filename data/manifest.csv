@@ -1,2 +1,14 @@
 parameter_id,parameter_name,year,path,row_count,min_datetime_utc,max_datetime_utc
+1,Lufttemperatur,2026,data/parameter_1/2026.csv,3130,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+12,Sikt,2026,data/parameter_12/2026.csv,3127,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+13,Rådande väder,2026,data/parameter_13/2026.csv,3126,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+16,Total molnmängd,2026,data/parameter_16/2026.csv,3128,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+21,Byvind,2026,data/parameter_21/2026.csv,3126,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+3,Vindriktning,2026,data/parameter_3/2026.csv,3127,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+39,Daggpunktstemperatur,2026,data/parameter_39/2026.csv,3128,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+4,Vindhastighet,2026,data/parameter_4/2026.csv,3127,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
 5,Nederbördsmängd,2026,data/parameter_5/2026.csv,130,2026-05-23T06:00:01Z,2026-09-30T06:00:01Z
+6,Relativ Luftfuktighet,2026,data/parameter_6/2026.csv,3128,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+7,Nederbördsmängd,2026,data/parameter_7/2026.csv,3008,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
+8,Snödjup,2026,data/parameter_8/2026.csv,62,2026-05-25T06:00:00Z,2026-10-01T06:00:00Z
+9,Lufttryck reducerat havsytans nivå,2026,data/parameter_9/2026.csv,3130,2026-05-24T01:00:00Z,2026-10-01T10:00:00Z
