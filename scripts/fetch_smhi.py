@@ -78,6 +78,34 @@ def request_json(url: str, allow_404: bool = False) -> dict[str, Any] | None:
     return None
 
 
+def request_text(url: str, allow_404: bool = False) -> str | None:
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = SESSION.get(url, timeout=TIMEOUT_SECONDS)
+            if response.status_code == 404 and allow_404:
+                return None
+            response.raise_for_status()
+
+            raw = response.content
+            for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+                try:
+                    return raw.decode(encoding)
+                except UnicodeDecodeError:
+                    continue
+            return raw.decode("utf-8", errors="replace")
+        except requests.RequestException as exc:
+            if attempt == MAX_RETRIES:
+                raise RuntimeError(f"Failed to fetch {url}: {exc}") from exc
+            wait_seconds = 2 ** (attempt - 1)
+            print(
+                f"Temporary error for {url}; retry {attempt}/{MAX_RETRIES} "
+                f"after {wait_seconds}s: {exc}",
+                file=sys.stderr,
+            )
+            time.sleep(wait_seconds)
+    return None
+
+
 def load_config() -> dict[str, Any]:
     with CONFIG_PATH.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -128,6 +156,166 @@ def payload_metadata(
     return parameter_meta, station_meta
 
 
+def datetime_text_to_epoch_ms(value: str) -> int:
+    text = value.strip().replace("T", " ")
+    if text.endswith("Z"):
+        text = text[:-1]
+
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(text, pattern).replace(tzinfo=timezone.utc)
+            return int(parsed.timestamp() * 1000)
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unsupported SMHI datetime: {value!r}")
+
+
+def fetch_period_csv(
+    parameter_cfg: dict[str, Any], station_cfg: dict[str, Any], period: str
+) -> tuple[list[dict[str, str]], dict[str, str], dict[str, str]]:
+    parameter_id = str(parameter_cfg["id"])
+    station_id = str(station_cfg["id"])
+
+    urls = [
+        (
+            f"{BASE_URL}/parameter/{parameter_id}/station/{station_id}"
+            f"/period/{period}/data.csv"
+        ),
+        (
+            "https://opendata-download.smhi.se/stream"
+            f"?type=metobs&parameterIds={parameter_id}"
+            f"&stationId={station_id}&period={period}"
+        ),
+    ]
+
+    content: str | None = None
+    source_url = ""
+    for url in urls:
+        content = request_text(url, allow_404=True)
+        if content:
+            source_url = url
+            break
+
+    if not content:
+        return [], {}, {}
+
+    parsed_rows = list(csv.reader(io.StringIO(content), delimiter=";"))
+    parameter_meta = {
+        "parameter_id": parameter_id,
+        "parameter_name": str(parameter_cfg.get("name") or ""),
+        "parameter_summary": "",
+        "unit": "",
+    }
+    station_meta = {
+        "station_id": station_id,
+        "station_name": str(station_cfg.get("name") or ""),
+    }
+
+    for index, cells in enumerate(parsed_rows[:-1]):
+        normalized = [cell.strip() for cell in cells]
+        if normalized and normalized[0].lower().startswith("stationsnamn"):
+            values = parsed_rows[index + 1]
+            if values:
+                station_meta["station_name"] = values[0].strip() or station_meta["station_name"]
+            if len(values) > 1:
+                station_meta["station_id"] = values[1].strip() or station_meta["station_id"]
+
+        if normalized and normalized[0].lower().startswith("parameternamn"):
+            values = parsed_rows[index + 1]
+            if values:
+                parameter_meta["parameter_name"] = values[0].strip() or parameter_meta["parameter_name"]
+            if len(values) > 1:
+                parameter_meta["parameter_summary"] = values[1].strip()
+            if len(values) > 2:
+                parameter_meta["unit"] = values[2].strip()
+
+    header_index = None
+    for index, cells in enumerate(parsed_rows):
+        if not cells:
+            continue
+        first = cells[0].strip().lower()
+        second = cells[1].strip().lower() if len(cells) > 1 else ""
+        if (first == "datum" and "tid" in second) or (
+            "datum tid" in first and ("från" in first or "fran" in first)
+        ):
+            header_index = index
+            break
+
+    if header_index is None:
+        print(
+            f"  CSV fallback did not find a data header for parameter {parameter_id} "
+            f"({source_url})",
+            file=sys.stderr,
+        )
+        return [], parameter_meta, station_meta
+
+    header = [cell.strip() for cell in parsed_rows[header_index]]
+    quality_index = next(
+        (i for i, name in enumerate(header) if "kvalitet" in name.lower()),
+        None,
+    )
+    if quality_index is None or quality_index < 1:
+        print(
+            f"  CSV fallback did not find the quality/value columns for parameter {parameter_id}",
+            file=sys.stderr,
+        )
+        return [], parameter_meta, station_meta
+
+    value_index = quality_index - 1
+    interval_format = "datum tid" in header[0].lower() and (
+        "från" in header[0].lower() or "fran" in header[0].lower()
+    )
+
+    rows: list[dict[str, str]] = []
+    for cells in parsed_rows[header_index + 1 :]:
+        if len(cells) <= quality_index:
+            continue
+
+        try:
+            if interval_format:
+                start_text = cells[0].strip()
+                end_text = cells[1].strip()
+                if not start_text:
+                    continue
+                start_ms = datetime_text_to_epoch_ms(start_text)
+                end_ms = datetime_text_to_epoch_ms(end_text) if end_text else None
+            else:
+                date_text = cells[0].strip()
+                time_text = cells[1].strip()
+                if not date_text:
+                    continue
+                start_ms = datetime_text_to_epoch_ms(
+                    f"{date_text} {time_text}".strip()
+                )
+                end_ms = None
+        except ValueError:
+            continue
+
+        raw_value = cells[value_index].strip()
+        rows.append(
+            {
+                "station_id": station_meta["station_id"],
+                "station_name": station_meta["station_name"],
+                "parameter_id": parameter_meta["parameter_id"],
+                "parameter_name": parameter_meta["parameter_name"],
+                "parameter_summary": parameter_meta["parameter_summary"],
+                "unit": parameter_meta["unit"],
+                "datetime_utc": epoch_ms_to_iso(start_ms),
+                "datetime_local": epoch_ms_to_iso(start_ms, local=True),
+                "from_ms": str(start_ms),
+                "to_ms": "" if end_ms is None else str(end_ms),
+                "value": text_value(raw_value),
+                "value_numeric": numeric_value(raw_value),
+                "quality": cells[quality_index].strip(),
+                "reference": "",
+                "source_period": f"{period}-csv",
+            }
+        )
+
+    return rows, parameter_meta, station_meta
+
+
 def fetch_period(
     parameter_cfg: dict[str, Any], station_cfg: dict[str, Any], period: str
 ) -> tuple[list[dict[str, str]], dict[str, str], dict[str, str]]:
@@ -139,7 +327,7 @@ def fetch_period(
     )
     payload = request_json(url, allow_404=True)
     if payload is None:
-        return [], {}, {}
+        return fetch_period_csv(parameter_cfg, station_cfg, period)
 
     parameter_meta, station_meta = payload_metadata(payload, parameter_cfg, station_cfg)
     rows: list[dict[str, str]] = []
