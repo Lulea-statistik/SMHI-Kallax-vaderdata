@@ -1,0 +1,21 @@
+{
+  "station": {
+    "id": "162860",
+    "name": "Luleå-Kallax Flygplats"
+  },
+  "parameters": [
+    {"id": "1", "name": "Lufttemperatur"},
+    {"id": "3", "name": "Vindriktning"},
+    {"id": "4", "name": "Vindhastighet"},
+    {"id": "5", "name": "Nederbörd 1 dygn"},
+    {"id": "6", "name": "Relativ luftfuktighet"},
+    {"id": "7", "name": "Nederbörd 1 timme"},
+    {"id": "8", "name": "Snödjup"},
+    {"id": "9", "name": "Lufttryck"},
+    {"id": "12", "name": "Sikt"},
+    {"id": "13", "name": "Rådande väder"},
+    {"id": "16", "name": "Total molnmängd"},
+    {"id": "21", "name": "Byvind"},
+    {"id": "39", "name": "Daggpunktstemperatur"}
+  ]
+}
