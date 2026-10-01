@@ -1,0 +1,53 @@
+let
+    BaseUrl = "https://raw.githubusercontent.com",
+    RepoPath = "LuleaRobert2/SMHI-Kallax-vaderdata/main/",
+
+    ManifestBinary = Web.Contents(
+        BaseUrl,
+        [RelativePath = RepoPath & "data/manifest.csv"]
+    ),
+    ManifestCsv = Csv.Document(
+        ManifestBinary,
+        [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
+    ),
+    Manifest = Table.PromoteHeaders(ManifestCsv, [PromoteAllScalars = true]),
+
+    LoadCsv = (RelativeFilePath as text) as table =>
+        let
+            FileBinary = Web.Contents(
+                BaseUrl,
+                [RelativePath = RepoPath & RelativeFilePath]
+            ),
+            FileCsv = Csv.Document(
+                FileBinary,
+                [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
+            ),
+            Promoted = Table.PromoteHeaders(FileCsv, [PromoteAllScalars = true])
+        in
+            Promoted,
+
+    WithData = Table.AddColumn(Manifest, "Data", each LoadCsv([path])),
+    Combined = Table.Combine(WithData[Data]),
+
+    Typed = Table.TransformColumnTypes(
+        Combined,
+        {
+            {"station_id", type text},
+            {"station_name", type text},
+            {"parameter_id", type text},
+            {"parameter_name", type text},
+            {"parameter_summary", type text},
+            {"unit", type text},
+            {"datetime_utc", type datetimezone},
+            {"datetime_local", type datetimezone},
+            {"from_ms", Int64.Type},
+            {"to_ms", Int64.Type},
+            {"value", type number},
+            {"quality", type text},
+            {"reference", type text},
+            {"source_period", type text}
+        },
+        "en-US"
+    )
+in
+    Typed
