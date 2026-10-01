@@ -1,0 +1,2 @@
+station_id,station_name,parameter_id,parameter_name,parameter_summary,unit,datetime_utc,datetime_local,from_ms,to_ms,value,value_numeric,quality,reference,source_period
+162860,Luleå-Kallax Flygplats,5,Nederbördsmängd,"summa 1 dygn, 1 gång/dygn, kl 06",millimeter,2012-12-31T06:00:01Z,2012-12-31T07:00:01+01:00,1356933601000,1357020000000,0.6,0.6,Y,,corrected-archive-csv

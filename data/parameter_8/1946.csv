@@ -1,0 +1,2 @@
+station_id,station_name,parameter_id,parameter_name,parameter_summary,unit,datetime_utc,datetime_local,from_ms,to_ms,value,value_numeric,quality,reference,source_period
+162860,Luleå-Kallax Flygplats,8,Snödjup,"momentanvärde, 1 gång/dygn, kl 06",meter,1946-08-13T06:00:00Z,1946-08-13T07:00:00+01:00,-738007200000,,0.00,0.00,G,,corrected-archive-csv
