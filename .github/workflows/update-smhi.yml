@@ -62,3 +62,6 @@ jobs:
           git commit -m "Update SMHI Kallax observations"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Validate data coverage
+        run: python scripts/validate_run.py
