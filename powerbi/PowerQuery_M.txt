@@ -42,7 +42,8 @@ let
             {"datetime_local", type datetimezone},
             {"from_ms", Int64.Type},
             {"to_ms", Int64.Type},
-            {"value", type number},
+            {"value", type text},
+            {"value_numeric", type number},
             {"quality", type text},
             {"reference", type text},
             {"source_period", type text}
