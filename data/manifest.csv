@@ -1,0 +1,2 @@
+parameter_id,parameter_name,year,path,row_count,min_datetime_utc,max_datetime_utc
+5,Nederbördsmängd,2026,data/parameter_5/2026.csv,130,2026-05-23T06:00:01Z,2026-09-30T06:00:01Z

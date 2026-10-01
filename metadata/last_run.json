@@ -1,0 +1,12 @@
+{
+  "station_id": "162860",
+  "station_name": "Luleå-Kallax Flygplats",
+  "mode": "bootstrap",
+  "started_utc": "2026-10-01T11:02:46+00:00",
+  "finished_utc": "2026-10-01T11:02:52+00:00",
+  "downloaded_rows_before_deduplication": 130,
+  "touched_partition_count": 1,
+  "touched_partitions": [
+    "data/parameter_5/2026.csv"
+  ]
+}
