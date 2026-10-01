@@ -1,0 +1,64 @@
+name: Update SMHI Kallax weather data
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Körläge"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - bootstrap
+          - update
+          - refresh-all
+  schedule:
+    - cron: "30 4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: smhi-kallax-data-update
+  cancel-in-progress: false
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download and merge SMHI observations
+        env:
+          RUN_MODE: ${{ github.event.inputs.mode || 'auto' }}
+        run: python scripts/fetch_smhi.py --mode "$RUN_MODE"
+
+      - name: Commit updated data
+        shell: bash
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data metadata
+          git commit -m "Update SMHI Kallax observations"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
