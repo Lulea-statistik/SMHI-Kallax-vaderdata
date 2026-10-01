@@ -63,3 +63,13 @@ SMHI använder två olika tidsfält i MetObs-svaren:
 Importskriptet hanterar båda. `value` sparas alltid som text och `value_numeric` fylls när värdet kan tolkas numeriskt. Det gör att även kodade eller textbaserade observationer kan bevaras utan att Power BI tvingar dem till tal.
 
 API-basen använder `version/latest`. Efter varje körning kontrolleras dessutom hur många konfigurerade parametrar som faktiskt gav data. Om färre än hälften ger data markeras workflowet som misslyckat, även om de filer som gick att hämta först har sparats för felsökning.
+
+
+## Historiskt arkiv
+
+SMHI:s `corrected-archive` beter sig annorlunda än de aktuella JSON-perioderna. Skriptet försöker därför först API:ets CSV-resurs för perioden och använder vid behov SMHI:s stream-nedladdning som reservväg. CSV-filen innehåller metadata före själva datatabellen; importen hittar automatiskt tabellhuvudet och hanterar både:
+
+- punktobservationer: `Datum` + `Tid (UTC)`
+- intervallobservationer: `Från Datum Tid (UTC)` + `Till Datum Tid (UTC)`
+
+Historiskt arkiv hämtas endast vid `bootstrap` och `refresh-all`, samt automatiskt den första dagen i varje månad när körläget är `auto`.
