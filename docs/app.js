@@ -146,6 +146,14 @@ function render(){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.y)+' mm'}}},
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'mm'},ticks:{precision:0}}}}});
 
+  let pt=DATA.precipitation.types.filter(r=>inYears(r,f));
+  let ptAnnual=pt;if(f.month)ptAnnual=ptAnnual.filter(r=>r.month===f.month);
+  const pta=precipTypeShares(ptAnnual,r=>r.year);
+  renderPrecipTypeChart('precipTypeAnnual',pta.map(r=>r.key),pta);
+  const ptm=precipTypeShares(pt,r=>r.month);
+  const ptmByMonth=months.map((_,i)=>ptm.find(r=>+r.key===i+1)||{key:i+1,rain:0,mixed:0,snow:0});
+  renderPrecipTypeChart('precipTypeMonthly',months,ptmByMonth);
+
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
 
   const ws=(f.month?DATA.wind.speed_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.speed_annual.filter(r=>inYears(r,f))),
