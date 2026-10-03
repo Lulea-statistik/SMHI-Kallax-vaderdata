@@ -46,13 +46,14 @@
   </section>
 
   <section id="page-temp2" class="page">
-    <div class="page-tools temp2-tools">
-      <div><strong>År i diagrammet</strong><div class="hint">Välj upp till 10 år. De 10 senaste åren är valda från början.</div></div>
-      <button id="temp2Latest10" class="small-button">Senaste 10</button>
-      <span id="temp2Count" class="selection-count"></span>
+    <div class="temp2-window">
+      <div class="temp2-window-head">
+        <div><strong>10-årsperiod</strong><div class="hint">Perioden är alltid 10 år. Standard är de 10 senaste åren.</div></div>
+        <strong id="temp2PeriodLabel"></strong>
+      </div>
+      <input id="temp2Start" type="range">
     </div>
-    <div id="temp2YearPicker" class="year-picker"></div>
-    <div class="chart-card tall"><h2>Månadsprofil temperatur – valda år</h2><canvas id="tempProfiles"></canvas></div>
+    <div class="chart-card tall"><h2>Månadsprofil temperatur – 10-årsperiod</h2><canvas id="tempProfiles"></canvas></div>
   </section>
 
   <section id="page-precip" class="page">
@@ -95,7 +96,7 @@
 
   <section id="page-zerocross" class="page">
     <div class="chart-card"><h2>Dygn med nollgenomgång per år</h2><p class="hint">Ett dygn räknas när temperaturserien byter sida om 0 °C minst en gång.</p><canvas id="zeroAnnual"></canvas></div>
-    <div class="chart-card"><h2>Dygn med nollgenomgång per månad</h2><canvas id="zeroMonthly"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittligt antal dygn med nollgenomgång per månad</h2><canvas id="zeroMonthly"></canvas></div>
     <div class="chart-card full"><h2>Vilka dygn hade nollgenomgång?</h2><div id="zeroTable" class="table-scroll"></div></div>
   </section>
 
