@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -87,6 +87,7 @@
     <div class="chart-card"><h2>Vindhastighet per år</h2><p class="hint">Årsmedel, årets högsta dygnsmaximum av 10-minuters medelvind samt årets högsta byvind.</p><canvas id="windSpeed"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per år</h2><p class="hint">Cirkulärt medelvärde.</p><canvas id="windDirection"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per månad</h2><p class="hint">Cirkulärt medel för varje månad inom valt årsintervall.</p><canvas id="windDirectionMonthly"></canvas></div>
+    <div class="chart-card"><h2>Andel vindriktning per år</h2><p class="hint">Åtta sektorer à 45°. N omfattar 337,5°–360° och 0°–22,5°. Observationer med vindriktning 0 (lugnt/stiltje) exkluderas.</p><canvas id="windDirectionShares"></canvas></div>
     <div class="chart-card compass-card">
       <h2>Så läses vindriktning</h2>
       <div class="compass"><span class="n">N<br><small>0°/360°</small></span><span class="e">O<br><small>90°</small></span><span class="s">S<br><small>180°</small></span><span class="w">V<br><small>270°</small></span><div class="compass-ring"></div><div class="wind-arrow" id="windArrow"></div><div class="compass-dot"></div></div>
@@ -137,5 +138,5 @@
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body></html>
