@@ -6600,3 +6600,7 @@ station_id,station_name,parameter_id,parameter_name,parameter_summary,unit,datet
 162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T08:00:00Z,2026-10-03T10:00:00+02:00,1791014400000,,5000,5000,Y,,latest-months
 162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T09:00:00Z,2026-10-03T11:00:00+02:00,1791018000000,,2500,2500,Y,,latest-months
 162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T10:00:00Z,2026-10-03T12:00:00+02:00,1791021600000,,10000,10000,Y,,latest-months
+162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T11:00:00Z,2026-10-03T13:00:00+02:00,1791025200000,,20000,20000,Y,,latest-months
+162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T12:00:00Z,2026-10-03T14:00:00+02:00,1791028800000,,29000,29000,Y,,latest-months
+162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T13:00:00Z,2026-10-03T15:00:00+02:00,1791032400000,,24000,24000,Y,,latest-months
+162860,Luleå-Kallax Flygplats,12,Sikt,"momentanvärde, 1 gång/tim",meter,2026-10-03T14:00:00Z,2026-10-03T16:00:00+02:00,1791036000000,,26000,26000,Y,,latest-months
