@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
   <button data-page="sunshine">Solskenstid</button>
   <button data-page="snow">Snödjup</button>
   <button data-page="zerocross">Nollgenomgångar</button>
+  <button data-page="dateweather">Väder efter datum</button>
   <button data-page="data">Data</button>
 </nav>
 <main>
@@ -114,7 +115,17 @@
     <div class="chart-card full"><h2>Vilka dygn hade nollgenomgång?</h2><div id="zeroTable" class="table-scroll"></div></div>
   </section>
 
+  <section id="page-dateweather" class="page">
+    <div class="page-tools">
+      <label>Datum<input id="dateWeatherPicker" type="date"></label>
+      <span id="dateWeatherStatus" class="hint"></span>
+    </div>
+    <div class="chart-card"><h2>Temperatur under dygnet</h2><canvas id="dateTemp"></canvas></div>
+    <div class="chart-card"><h2>Dygnsvärden</h2><div id="dateSummary"></div></div>
+    <div class="chart-card full"><h2>Rådande väder under dygnet</h2><p class="hint">Varje stapel motsvarar en väderobservation. Stapeln är 100 % och visar vilket väder som registrerades vid tidpunkten.</p><canvas id="dateWeather"></canvas></div>
+  </section>
+
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body></html>
