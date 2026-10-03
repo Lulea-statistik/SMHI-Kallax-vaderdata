@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.request import Request,urlopen
 ROOT=Path(__file__).resolve().parents[1];DATA=ROOT/'data';DOCS=ROOT/'docs'
 WEATHER_CODES_URL='https://www.smhi.se/data/hitta-data-for-en-plats/ladda-ner-vaderobservationer/presentWeather'
-PARAMS={1:'Lufttemperatur',3:'Vindriktning',4:'Vindhastighet',5:'Nederbörd 1 dygn',13:'Rådande väder'}
+PARAMS={1:'Lufttemperatur',3:'Vindriktning',4:'Vindhastighet',5:'Nederbörd 1 dygn',6:'Relativ luftfuktighet',12:'Sikt',13:'Rådande väder'}
 
 def read_param(pid:int):
     rows=[];folder=DATA/f'parameter_{pid}'
@@ -65,23 +65,35 @@ def aggregate_daily_max_annual(rows):
     for day,vals in daily.items():yearly[day.year].append(max(vals))
     return [{'year':yr,'max':r2(max(vals))} for yr,vals in sorted(yearly.items()) if vals]
 def aggregate_precip(rows):
-    y=defaultdict(float);ym=defaultdict(list)
-    for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)].append(v)
-    return ([{'year':k,'sum':r2(v)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'avg':r2(mean(v))} for k,v in sorted(ym.items())])
+    y=defaultdict(float);ym=defaultdict(float)
+    for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)]+=v
+    return ([{'year':k,'sum':r2(v)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'sum':r2(v)} for k,v in sorted(ym.items())])
 def aggregate_weather(rows):
     c=defaultdict(int)
     for d,v in rows:
         code=str(int(v)) if float(v).is_integer() else str(v);c[(d.year,d.month,code)]+=1
     return [{'year':k[0],'month':k[1],'code':k[2],'count':v} for k,v in sorted(c.items())]
+def zero_crossings(rows):
+    byday=defaultdict(list)
+    for d,v in rows:byday[d.date()].append((d,v))
+    out=[]
+    for day,obs in sorted(byday.items()):
+        obs.sort(key=lambda x:x[0]);last_sign=None;cross=0;dirs=[]
+        vals=[v for _,v in obs]
+        for _,v in obs:
+            sign=1 if v>0 else -1 if v<0 else 0
+            if sign==0:continue
+            if last_sign is not None and sign!=last_sign:
+                cross+=1;dirs.append('-→+' if last_sign<0 else '+→-')
+            last_sign=sign
+        if cross:
+            out.append({'date':day.isoformat(),'year':day.year,'month':day.month,'min':r2(min(vals)),'max':r2(max(vals)),'crossings':cross,'directions':dirs,'observations':len(obs)})
+    return out
 def fetch_weather_labels():
     labels={}
     try:
         req=Request(WEATHER_CODES_URL,headers={'User-Agent':'SMHI-Kallax-vaderdata GitHub Action'});raw=urlopen(req,timeout=30).read().decode('utf-8','ignore')
-        patterns=[
-          r'<td[^>]*>\s*(\d{1,3})\s*</td>\s*<td[^>]*>(.*?)</td>',
-          r'["\']?(\d{1,3})["\']?\s*[:=,]\s*["\']([^"\']{3,180})["\']',
-          r'Kod\s*(\d{1,3})\s*</[^>]+>\s*<[^>]+>([^<]{3,180})'
-        ]
+        patterns=[r'<td[^>]*>\s*(\d{1,3})\s*</td>\s*<td[^>]*>(.*?)</td>',r'["\']?(\d{1,3})["\']?\s*[:=,]\s*["\']([^"\']{3,180})["\']',r'Kod\s*(\d{1,3})\s*</[^>]+>\s*<[^>]+>([^<]{3,180})']
         for pat in patterns:
             for code,label in re.findall(pat,raw,re.I|re.S):
                 clean=html.unescape(re.sub(r'<[^>]+>',' ',label));clean=re.sub(r'\s+',' ',clean).strip()
@@ -92,13 +104,14 @@ def coverage(rows,name):
     if not rows:return {'name':name,'min_date':'-','max_date':'-','rows':0}
     dates=[d for d,_ in rows];return {'name':name,'min_date':min(dates).date().isoformat(),'max_date':max(dates).date().isoformat(),'rows':len(rows)}
 
-temp=read_param(1);wind_dir=read_param(3);wind_speed=read_param(4);prec=read_param(5);weather=read_param(13)
-temp_a,temp_m=aggregate_temp(temp);wind_s_a,_=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec)
+temp=read_param(1);wind_dir=read_param(3);wind_speed=read_param(4);prec=read_param(5);humidity=read_param(6);visibility=read_param(12);weather=read_param(13)
+temp_a,temp_m=aggregate_temp(temp);wind_s_a,_=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec);hum_a,hum_m=aggregate_mean(humidity);vis_a,vis_m=aggregate_mean(visibility)
 weather_rows=aggregate_weather(weather);used=sorted({r['code'] for r in weather_rows},key=lambda x:float(x));all_labels=fetch_weather_labels();labels={c:all_labels.get(c,f'Kod {c}') for c in used}
-all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,weather] for d,_ in rows})
+all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,visibility,weather] for d,_ in rows})
 payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'station':{'id':'162860','name':'Luleå-Kallax Flygplats'},'years':all_years,
- 'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_daily_avg':prec_m},
+ 'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m},
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
  'wind':{'speed_annual':wind_s_a,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
- 'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3])]}
-DOCS.mkdir(exist_ok=True);(DOCS/'dashboard_data.json').write_text(json.dumps(payload,ensure_ascii=False,separators=(',',':')),encoding='utf-8');print(f"Wrote {DOCS/'dashboard_data.json'} with {len(labels)} weather labels")
+ 'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},'zero_crossings':zero_crossings(temp),
+ 'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3]),coverage(visibility,PARAMS[12]),coverage(humidity,PARAMS[6])]}
+DOCS.mkdir(exist_ok=True);(DOCS/'dashboard_data.json').write_text(json.dumps(payload,ensure_ascii=False,separators=(',',':')),encoding='utf-8');print(f"Wrote {DOCS/'dashboard_data.json'} with {len(labels)} weather labels and {len(payload['zero_crossings'])} zero-crossing days")

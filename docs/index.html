@@ -12,9 +12,15 @@
   <div id="updated" class="updated"></div>
 </header>
 <nav class="tabs" id="tabs">
-  <button data-page="temp1" class="active">Temperatur 1</button><button data-page="temp2">Temperatur 2</button>
-  <button data-page="precip">Nederbörd</button><button data-page="weather">Väder</button>
-  <button data-page="wind">Vind</button><button data-page="data">Data</button>
+  <button data-page="temp1" class="active">Temperatur 1</button>
+  <button data-page="temp2">Temperatur 2</button>
+  <button data-page="precip">Nederbörd</button>
+  <button data-page="weather">Väder</button>
+  <button data-page="wind">Vind</button>
+  <button data-page="visibility">Sikt</button>
+  <button data-page="humidity">Luftfuktighet</button>
+  <button data-page="zerocross">Nollgenomgångar</button>
+  <button data-page="data">Data</button>
 </nav>
 <main>
   <section class="filters">
@@ -34,49 +40,63 @@
   </section>
 
   <section id="page-temp1" class="page active">
-    <div class="page-tools">
-      <label>Temperaturvärde
-        <select id="tempMetric"><option value="avg">Medel</option><option value="min">Minimum</option><option value="max">Maximum</option></select>
-      </label>
-    </div>
+    <div class="page-tools"><label>Temperaturvärde<select id="tempMetric"><option value="avg">Medel</option><option value="min">Minimum</option><option value="max">Maximum</option></select></label></div>
     <div class="chart-card"><h2 id="tempAnnualTitle">Genomsnittlig lufttemperatur per år</h2><canvas id="tempAnnual"></canvas></div>
     <div class="chart-card"><h2 id="tempMonthlyTitle">Genomsnittlig lufttemperatur per månad</h2><canvas id="tempMonthly"></canvas></div>
   </section>
 
   <section id="page-temp2" class="page">
-    <div class="chart-card tall"><h2>Månadsprofil temperatur per år</h2><p class="hint">Visar upp till de 10 senaste åren inom valt intervall.</p><canvas id="tempProfiles"></canvas></div>
+    <div class="page-tools temp2-tools">
+      <div><strong>År i diagrammet</strong><div class="hint">Välj upp till 10 år. De 10 senaste åren är valda från början.</div></div>
+      <button id="temp2Latest10" class="small-button">Senaste 10</button>
+      <span id="temp2Count" class="selection-count"></span>
+    </div>
+    <div id="temp2YearPicker" class="year-picker"></div>
+    <div class="chart-card tall"><h2>Månadsprofil temperatur – valda år</h2><canvas id="tempProfiles"></canvas></div>
   </section>
 
   <section id="page-precip" class="page">
     <div class="chart-card"><h2>Total nederbörd per år</h2><canvas id="precipAnnual"></canvas></div>
-    <div class="chart-card"><h2>Genomsnittlig dygnsnederbörd per månad</h2><canvas id="precipMonthly"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig månadsnederbörd</h2><canvas id="precipMonthly"></canvas></div>
   </section>
 
   <section id="page-weather" class="page">
     <div class="page-tools">
-      <label>Väderkod<select id="weatherCode"></select></label>
+      <label>Väderkod<select id="weatherCode"><option value="all">Alla koder</option></select></label>
       <a id="weatherSource" target="_blank" rel="noopener">SMHI:s kodtabell</a>
     </div>
     <div class="chart-card tall">
-      <h2 id="weatherTitle">Rådande väder – andel observationer per år</h2>
-      <p class="hint">Andel av samtliga väderobservationer det året som har vald kod.</p>
+      <h2 id="weatherTitle">Rådande väder – fördelning per år</h2>
+      <p id="weatherHint" class="hint">Alla koder visas som andel av årets observationer. Välj en kod ovan om du vill följa bara den.</p>
       <canvas id="weatherCodes"></canvas>
     </div>
   </section>
 
   <section id="page-wind" class="page wind-grid">
-    <div class="chart-card"><h2>Vindhastighet per år</h2><p class="hint">Årsmedel samt högsta observerade dygnsmax av 10-minuters medelvind.</p><canvas id="windSpeed"></canvas></div>
+    <div class="chart-card"><h2>Vindhastighet per år</h2><p class="hint">Årsmedel samt årets högsta dygnsmaximum av observerad 10-minuters medelvind.</p><canvas id="windSpeed"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per år</h2><p class="hint">Cirkulärt medelvärde.</p><canvas id="windDirection"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per månad</h2><p class="hint">Cirkulärt medel för varje månad inom valt årsintervall.</p><canvas id="windDirectionMonthly"></canvas></div>
     <div class="chart-card compass-card">
       <h2>Så läses vindriktning</h2>
-      <div class="compass"><span class="n">N<br><small>0°/360°</small></span><span class="e">O<br><small>90°</small></span>
-        <span class="s">S<br><small>180°</small></span><span class="w">V<br><small>270°</small></span>
-        <div class="compass-ring"></div><div class="wind-arrow" id="windArrow"></div><div class="compass-dot"></div>
-      </div>
-      <div id="windCompassText" class="compass-text">170° = vind från nästan syd</div>
-      <p class="hint">SMHI anger den riktning vinden kommer <b>från</b>.</p>
+      <div class="compass"><span class="n">N<br><small>0°/360°</small></span><span class="e">O<br><small>90°</small></span><span class="s">S<br><small>180°</small></span><span class="w">V<br><small>270°</small></span><div class="compass-ring"></div><div class="wind-arrow" id="windArrow"></div><div class="compass-dot"></div></div>
+      <div id="windCompassText" class="compass-text">170° = vind från nästan syd</div><p class="hint">SMHI anger den riktning vinden kommer <b>från</b>.</p>
     </div>
+  </section>
+
+  <section id="page-visibility" class="page">
+    <div class="chart-card"><h2>Genomsnittlig sikt per år</h2><canvas id="visibilityAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig sikt per månad</h2><canvas id="visibilityMonthly"></canvas></div>
+  </section>
+
+  <section id="page-humidity" class="page">
+    <div class="chart-card"><h2>Genomsnittlig relativ luftfuktighet per år</h2><canvas id="humidityAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig relativ luftfuktighet per månad</h2><canvas id="humidityMonthly"></canvas></div>
+  </section>
+
+  <section id="page-zerocross" class="page">
+    <div class="chart-card"><h2>Dygn med nollgenomgång per år</h2><p class="hint">Ett dygn räknas när temperaturserien byter sida om 0 °C minst en gång.</p><canvas id="zeroAnnual"></canvas></div>
+    <div class="chart-card"><h2>Dygn med nollgenomgång per månad</h2><canvas id="zeroMonthly"></canvas></div>
+    <div class="chart-card full"><h2>Vilka dygn hade nollgenomgång?</h2><div id="zeroTable" class="table-scroll"></div></div>
   </section>
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
