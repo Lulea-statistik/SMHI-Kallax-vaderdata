@@ -192,6 +192,17 @@ function render(){
 
   const wd=(f.month?DATA.wind.direction_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.direction_annual.filter(r=>inYears(r,f)));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
   const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
+  let wds=DATA.wind.direction_sectors.filter(r=>inYears(r,f));if(f.month)wds=wds.filter(r=>r.month===f.month);
+  const windShareYears=[...new Set(wds.map(r=>r.year))].sort((a,b)=>a-b);
+  const windDirs=['N','NO','O','SO','S','SV','V','NV'];
+  const windTotals={};wds.forEach(r=>windTotals[r.year]=(windTotals[r.year]||0)+r.count);
+  destroyChart('windDirectionShares');
+  charts.windDirectionShares=new Chart(el('windDirectionShares'),{type:'bar',data:{labels:windShareYears,datasets:windDirs.map(dir=>({
+    label:dir,stack:'dir',borderWidth:0,
+    data:windShareYears.map(y=>{const n=wds.filter(r=>r.year===y&&r.direction===dir).reduce((s,r)=>s+r.count,0);return windTotals[y]?100*n/windTotals[y]:0;})
+  }))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1).replace('.',',')+' %'}}},
+    scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,title:{display:true,text:'andel (%)'},ticks:{callback:v=>v+' %'}}}}});
 
   const va=selectedAnnualRows(DATA.visibility.annual,DATA.visibility.monthly,f);
   const vaVals=va.map(r=>Math.round(r.avg));
