@@ -538,7 +538,8 @@ def main() -> int:
 
     for parameter_cfg in config["parameters"]:
         parameter_id = str(parameter_cfg["id"])
-        print(f"Parameter {parameter_id}: {parameter_cfg.get('name', '')}")
+        parameter_station = parameter_cfg.get("station") or station_cfg
+        print(f"Parameter {parameter_id}: {parameter_cfg.get('name', '')} (station {parameter_station['id']})")
 
         incoming: list[dict[str, str]] = []
         parameter_meta: dict[str, str] = {}
@@ -549,7 +550,7 @@ def main() -> int:
         try:
             if mode in ("bootstrap", "refresh-all"):
                 archive_rows, pmeta, _ = fetch_period(
-                    parameter_cfg, station_cfg, "corrected-archive"
+                    parameter_cfg, parameter_station, "corrected-archive"
                 )
                 if archive_rows:
                     incoming.extend(archive_rows)
@@ -559,7 +560,7 @@ def main() -> int:
                 else:
                     print("  corrected-archive: unavailable or empty")
 
-            recent_rows, pmeta, _, recent_period = fetch_recent(parameter_cfg, station_cfg)
+            recent_rows, pmeta, _, recent_period = fetch_recent(parameter_cfg, parameter_station)
             if recent_rows:
                 incoming.extend(recent_rows)
                 periods_used.append(recent_period)
