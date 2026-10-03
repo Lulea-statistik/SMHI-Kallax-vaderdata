@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.request import Request,urlopen
 ROOT=Path(__file__).resolve().parents[1];DATA=ROOT/'data';DOCS=ROOT/'docs'
 WEATHER_CODES_URL='https://www.smhi.se/data/hitta-data-for-en-plats/ladda-ner-vaderobservationer/presentWeather'
-PARAMS={1:'Lufttemperatur',3:'Vindriktning',4:'Vindhastighet',5:'Nederbörd 1 dygn',6:'Relativ luftfuktighet',12:'Sikt',13:'Rådande väder'}
+PARAMS={1:'Lufttemperatur',3:'Vindriktning',4:'Vindhastighet',5:'Nederbörd 1 dygn',6:'Relativ luftfuktighet',8:'Snödjup',10:'Solskenstid',12:'Sikt',13:'Rådande väder',21:'Byvind'}
 
 def read_param(pid:int):
     rows=[];folder=DATA/f'parameter_{pid}'
@@ -68,6 +68,14 @@ def aggregate_precip(rows):
     y=defaultdict(float);ym=defaultdict(float)
     for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)]+=v
     return ([{'year':k,'sum':r2(v)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'sum':r2(v)} for k,v in sorted(ym.items())])
+def aggregate_max(rows):
+    y=defaultdict(list);ym=defaultdict(list)
+    for d,v in rows:y[d.year].append(v);ym[(d.year,d.month)].append(v)
+    return ([{'year':k,'max':r2(max(v))} for k,v in sorted(y.items()) if v],[{'year':k[0],'month':k[1],'max':r2(max(v))} for k,v in sorted(ym.items()) if v])
+def aggregate_sum_hours(rows):
+    y=defaultdict(float);ym=defaultdict(float)
+    for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)]+=v
+    return ([{'year':k,'hours':r2(v/3600.0)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'hours':r2(v/3600.0)} for k,v in sorted(ym.items())])
 def aggregate_weather(rows):
     c=defaultdict(int)
     for d,v in rows:
@@ -104,14 +112,17 @@ def coverage(rows,name):
     if not rows:return {'name':name,'min_date':'-','max_date':'-','rows':0}
     dates=[d for d,_ in rows];return {'name':name,'min_date':min(dates).date().isoformat(),'max_date':max(dates).date().isoformat(),'rows':len(rows)}
 
-temp=read_param(1);wind_dir=read_param(3);wind_speed=read_param(4);prec=read_param(5);humidity=read_param(6);visibility=read_param(12);weather=read_param(13)
-temp_a,temp_m=aggregate_temp(temp);wind_s_a,_=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec);hum_a,hum_m=aggregate_mean(humidity);vis_a,vis_m=aggregate_mean(visibility)
+temp=read_param(1);wind_dir=read_param(3);wind_speed=read_param(4);prec=read_param(5);humidity=read_param(6);snow=read_param(8);sunshine=read_param(10);visibility=read_param(12);weather=read_param(13);gust=read_param(21)
+temp_a,temp_m=aggregate_temp(temp);wind_s_a,_=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec);hum_a,hum_m=aggregate_mean(humidity);vis_a,vis_m=aggregate_mean(visibility);snow_a,snow_m=aggregate_mean(snow);snow_max_a,_=aggregate_max(snow);gust_max_a,_=aggregate_max(gust);sun_a,sun_m=aggregate_sum_hours(sunshine)
 weather_rows=aggregate_weather(weather);used=sorted({r['code'] for r in weather_rows},key=lambda x:float(x));all_labels=fetch_weather_labels();labels={c:all_labels.get(c,f'Kod {c}') for c in used}
-all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,visibility,weather] for d,_ in rows})
+all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,snow,sunshine,visibility,weather,gust] for d,_ in rows})
 payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'station':{'id':'162860','name':'Luleå-Kallax Flygplats'},'years':all_years,
  'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m},
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
- 'wind':{'speed_annual':wind_s_a,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
- 'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},'zero_crossings':zero_crossings(temp),
- 'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3]),coverage(visibility,PARAMS[12]),coverage(humidity,PARAMS[6])]}
+ 'wind':{'speed_annual':wind_s_a,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'gust_max_annual':gust_max_a,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
+ 'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},
+ 'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m},
+ 'sunshine':{'station':{'id':'162015','name':'Luleå Sol'},'annual':sun_a,'monthly_total':sun_m},
+ 'zero_crossings':zero_crossings(temp),
+ 'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3]),coverage(gust,PARAMS[21]),coverage(visibility,PARAMS[12]),coverage(humidity,PARAMS[6]),coverage(snow,PARAMS[8]),coverage(sunshine,PARAMS[10])]}
 DOCS.mkdir(exist_ok=True);(DOCS/'dashboard_data.json').write_text(json.dumps(payload,ensure_ascii=False,separators=(',',':')),encoding='utf-8');print(f"Wrote {DOCS/'dashboard_data.json'} with {len(labels)} weather labels and {len(payload['zero_crossings'])} zero-crossing days")
