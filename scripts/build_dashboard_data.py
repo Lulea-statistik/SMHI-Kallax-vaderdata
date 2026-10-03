@@ -76,6 +76,17 @@ def aggregate_sum_hours(rows):
     y=defaultdict(float);ym=defaultdict(float)
     for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)]+=v
     return ([{'year':k,'hours':r2(v/3600.0)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'hours':r2(v/3600.0)} for k,v in sorted(ym.items())])
+def snow_seasons(rows):
+    seasons=defaultdict(list)
+    for d,v in rows:
+        season_start=d.year if d.month>=8 else d.year-1
+        if v>0:seasons[season_start].append(d.date())
+    out=[]
+    for start,days in sorted(seasons.items()):
+        if not days:continue
+        first=min(days);last=max(days)
+        out.append({'start_year':start,'end_year':start+1,'label':f'{start}/{str(start+1)[-2:]}','first_snow':first.isoformat(),'last_snow':last.isoformat(),'length_days':(last-first).days+1,'snow_days_observed':len(set(days))})
+    return out
 def aggregate_weather(rows):
     c=defaultdict(int)
     for d,v in rows:
@@ -121,7 +132,7 @@ payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
  'wind':{'speed_annual':wind_s_a,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'gust_max_annual':gust_max_a,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
  'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},
- 'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m},
+ 'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m,'seasons':snow_seasons(snow)},
  'sunshine':{'station':{'id':'162015','name':'Luleå Sol'},'annual':sun_a,'monthly_total':sun_m},
  'zero_crossings':zero_crossings(temp),
  'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3]),coverage(gust,PARAMS[21]),coverage(visibility,PARAMS[12]),coverage(humidity,PARAMS[6]),coverage(snow,PARAMS[8]),coverage(sunshine,PARAMS[10])]}

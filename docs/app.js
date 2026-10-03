@@ -1,8 +1,8 @@
-let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let temp2Start=null;
+let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const MONTH_GREEN='#4f9d69';let temp2Start=null;
 const el=id=>document.getElementById(id);
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 function lineChart(id,labels,datasets,yTitle,extra={}){destroyChart(id);charts[id]=new Chart(el(id),{type:'line',data:{labels,datasets:datasets.map(d=>({borderWidth:2,pointRadius:0,tension:.15,...d}))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false}},y:{title:{display:!!yTitle,text:yTitle}}},...extra}});}
-function barChart(id,labels,data,yTitle){destroyChart(id);charts[id]=new Chart(el(id),{type:'bar',data:{labels,datasets:[{data,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:!!yTitle,text:yTitle}}}}});}
+function barChart(id,labels,data,yTitle,color=null){destroyChart(id);charts[id]=new Chart(el(id),{type:'bar',data:{labels,datasets:[{data,borderWidth:0,...(color?{backgroundColor:color}:{})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:!!yTitle,text:yTitle}}}}});}
 function currentFilters(){return{from:+el('yearFrom').value,to:+el('yearTo').value,month:+el('month').value};}
 function inYears(r,f){return r.year>=f.from&&r.year<=f.to;}
 function directionName(deg){const names=['N','NO','O','SO','S','SV','V','NV'];return names[Math.round((((deg||0)%360)+360)%360/45)%8];}
@@ -67,11 +67,11 @@ function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=DATA.temperature.annual.filter(r=>inYears(r,f));lineChart('tempAnnual',ta.map(r=>r.year),[{label:'°C',data:ta.map(r=>r[m])}],'°C');el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
   let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));if(f.month)tm=tm.filter(r=>r.month===f.month);
-  const tMonthAgg=[...Array(12)].map((_,i)=>{const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;return m==='min'?Math.min(...rows.map(r=>r.min)):m==='max'?Math.max(...rows.map(r=>r.max)):rows.reduce((s,r)=>s+r.avg,0)/rows.length;});lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
+  const tMonthAgg=[...Array(12)].map((_,i)=>{const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;return m==='min'?Math.min(...rows.map(r=>r.min)):m==='max'?Math.max(...rows.map(r=>r.max)):rows.reduce((s,r)=>s+r.avg,0)/rows.length;});lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
   renderTemp2();
 
   const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));barChart('precipAnnual',pa.map(r=>r.year),pa.map(r=>r.sum),'mm');
-  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm');
+  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm',MONTH_GREEN);
 
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
 
@@ -83,23 +83,36 @@ function render(){
   ],'m/s');
 
   const wd=DATA.wind.direction_annual.filter(r=>inYears(r,f));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
-  const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
+  const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
 
   const va=DATA.visibility.annual.filter(r=>inYears(r,f));lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
-  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter');
+  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
 
   const ha=DATA.humidity.annual.filter(r=>inYears(r,f));lineChart('humidityAnnual',ha.map(r=>r.year),[{label:'%',data:ha.map(r=>r.avg)}],'%');
-  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%');
+  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
 
   const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));barChart('sunAnnual',sunA.map(r=>r.year),sunA.map(r=>r.hours),'timmar');
-  let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar');
+  let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar',MONTH_GREEN);
 
   const snowA=DATA.snow.annual_mean.filter(r=>inYears(r,f)),snowMax=DATA.snow.annual_max.filter(r=>inYears(r,f));
   lineChart('snowAnnual',snowA.map(r=>r.year),[
     {label:'Årsmedel',data:snowA.map(r=>r.avg)},
     {label:'Årets största snödjup',data:snowA.map(r=>{const x=snowMax.find(a=>a.year===r.year);return x?x.max:null;})}
   ],'cm');
-  let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));if(f.month)snowM=snowM.filter(r=>r.month===f.month);barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm');
+  let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));if(f.month)snowM=snowM.filter(r=>r.month===f.month);barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm',MONTH_GREEN);
+  const snowSeasons=DATA.snow.seasons.filter(s=>s.start_year>=f.from&&s.end_year<=f.to);
+  const seasonLabels=snowSeasons.map(s=>s.label),seasonVals=snowSeasons.map(s=>s.length_days);
+  const seasonAvg=seasonVals.length?seasonVals.reduce((a,b)=>a+b,0)/seasonVals.length:null;
+  destroyChart('snowSeason');
+  charts.snowSeason=new Chart(el('snowSeason'),{
+    data:{labels:seasonLabels,datasets:[
+      {type:'bar',label:'Säsongslängd',data:seasonVals,borderWidth:0},
+      {type:'line',label:'Medel',data:seasonVals.map(()=>seasonAvg),borderWidth:2,pointRadius:0,borderDash:[6,4]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'–':c.parsed.y.toFixed(1))+' dygn'}}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'dygn'}}}}
+  });
 
   let z=DATA.zero_crossings.filter(r=>inYears(r,f));if(f.month)z=z.filter(r=>r.month===f.month);
   const zy={};z.forEach(r=>zy[r.year]=(zy[r.year]||0)+1);const zYears=Object.keys(zy).map(Number).sort((a,b)=>a-b);barChart('zeroAnnual',zYears,zYears.map(y=>zy[y]),'dygn');
@@ -108,7 +121,7 @@ function render(){
     const yearsCovered=new Set(tempCoverage.filter(r=>r.month===i+1).map(r=>r.year)).size;
     return yearsCovered?z.filter(r=>r.month===i+1).length/yearsCovered:null;
   });
-  barChart('zeroMonthly',months,zm,'dygn per år');
+  barChart('zeroMonthly',months,zm,'dygn per år',MONTH_GREEN);
   const crossByYear={};DATA.zero_crossings.filter(r=>inYears(r,f)).forEach(r=>{if(!crossByYear[r.year])crossByYear[r.year]={sum:0,n:0};crossByYear[r.year].sum+=r.crossings;crossByYear[r.year].n++;});
   const trendYears=Object.keys(crossByYear).map(Number).sort((a,b)=>a-b),trendVals=trendYears.map(y=>crossByYear[y].sum/crossByYear[y].n);
   lineChart('zeroTrend',trendYears,[{label:'Genomsnitt',data:trendVals,pointRadius:2},{label:'Linjär trend',data:linearTrend(trendYears,trendVals),pointRadius:0,borderDash:[6,4]}],'genomgångar per dygn');
