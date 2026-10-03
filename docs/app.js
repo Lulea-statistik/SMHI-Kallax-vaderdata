@@ -93,7 +93,7 @@ function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=selectedAnnualRows(DATA.temperature.annual,DATA.temperature.monthly,f);const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
   lineChart('tempAnnual',taYears,[{label:name,data:taVals},{label:'Linjär trend',data:linearTrend(taYears,taVals),pointRadius:0,borderDash:[6,4]}],'°C');
-  el('tempAnnualTitle').textContent=name+' lufttemperatur '+(f.month?'i '+months[f.month-1].toLowerCase():'per år');
+  el('tempAnnualTitle').textContent=name+' lufttemperatur '+(f.month?'i '+months[f.month-1].toLowerCase()+' per år':'per år');
   el('tempAnnualTrendText').textContent=trendRateText(taYears,taVals,'°C');
   let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));
   const tMonthAgg=[...Array(12)].map((_,i)=>{
@@ -109,7 +109,7 @@ function render(){
   destroyChart('precipAnnual');
   charts.precipAnnual=new Chart(el('precipAnnual'),{
     data:{labels:paYears,datasets:[
-      {type:'bar',label:'Årsnederbörd',data:paVals,borderWidth:0},
+      {type:'bar',label:f.month?months[f.month-1]+' nederbörd':'Årsnederbörd',data:paVals,borderWidth:0},
       {type:'line',label:'Linjär trend',data:linearTrend(paYears,paVals),borderWidth:2,pointRadius:0,borderDash:[6,4]}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
@@ -137,7 +137,7 @@ function render(){
   let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
 
   const ha=selectedAnnualRows(DATA.humidity.annual,DATA.humidity.monthly,f);const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
-  lineChart('humidityAnnual',haYears,[{label:'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
+  lineChart('humidityAnnual',haYears,[{label:f.month?months[f.month-1]+' medel':'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
   el('humidityAnnualTrendText').textContent=trendRateText(haYears,haVals,'procentenheter');
   let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
 
@@ -145,7 +145,7 @@ function render(){
   destroyChart('sunAnnual');
   charts.sunAnnual=new Chart(el('sunAnnual'),{
     data:{labels:sunYears,datasets:[
-      {type:'bar',label:'Solskenstid',data:sunVals,borderWidth:0},
+      {type:'bar',label:f.month?months[f.month-1]+' solskenstid':'Solskenstid per år',data:sunVals,borderWidth:0},
       {type:'line',label:'Linjär trend',data:linearTrend(sunYears,sunVals),borderWidth:2,pointRadius:0,borderDash:[6,4]}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
@@ -163,8 +163,8 @@ function render(){
   const snowA=selectedAnnualRows(DATA.snow.annual_mean,DATA.snow.monthly,f),
         snowMax=selectedAnnualRows(DATA.snow.annual_max,DATA.snow.monthly_max,f);
   lineChart('snowAnnual',snowA.map(r=>r.year),[
-    {label:'Årsmedel',data:snowA.map(r=>r.avg)},
-    {label:'Årets största snödjup',data:snowA.map(r=>{const x=snowMax.find(a=>a.year===r.year);return x?x.max:null;})}
+    {label:f.month?months[f.month-1]+' medel':'Årsmedel',data:snowA.map(r=>r.avg)},
+    {label:f.month?months[f.month-1]+' största snödjup':'Årets största snödjup',data:snowA.map(r=>{const x=snowMax.find(a=>a.year===r.year);return x?x.max:null;})}
   ],'cm');
   let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm',MONTH_GREEN);
   const snowSeasons=DATA.snow.seasons.filter(s=>s.start_year>=f.from&&s.end_year<=f.to);
