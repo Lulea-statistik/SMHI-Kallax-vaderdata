@@ -172,20 +172,39 @@ def fetch_weather_labels():
                 if clean and not clean.lower().startswith('kod '):labels.setdefault(code,clean)
     except Exception as e:print(f'Warning: could not fetch SMHI weather code labels: {e}')
     return labels
+def write_daily_detail(temp,prec,snow,weather):
+    outdir=DOCS/'daily';outdir.mkdir(parents=True,exist_ok=True)
+    byyear=defaultdict(lambda:defaultdict(lambda:{'temperature':[],'weather':[],'precipitation_mm':None,'snow_cm':None}))
+    for d,v in temp:
+        byyear[d.year][d.date().isoformat()]['temperature'].append({'time':d.strftime('%H:%M'),'value':r2(v)})
+    precip_daily=defaultdict(float)
+    for d,v in prec:precip_daily[d.date()]+=v
+    for day,v in precip_daily.items():byyear[day.year][day.isoformat()]['precipitation_mm']=r2(v)
+    snow_daily={}
+    for d,v in snow:snow_daily[d.date()]=(d,v)
+    for day,(d,v) in snow_daily.items():byyear[day.year][day.isoformat()]['snow_cm']=r2(v*100.0)
+    for d,v in weather:
+        code=str(int(v)) if float(v).is_integer() else str(v)
+        byyear[d.year][d.date().isoformat()]['weather'].append({'time':d.strftime('%H:%M'),'code':code})
+    for year,days in byyear.items():
+        for day in days.values():
+            day['temperature'].sort(key=lambda x:x['time']);day['weather'].sort(key=lambda x:x['time'])
+        (outdir/f'{year}.json').write_text(json.dumps({'year':year,'days':dict(sorted(days.items()))},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+
 def coverage(rows,name):
     if not rows:return {'name':name,'min_date':'-','max_date':'-','rows':0}
     dates=[d for d,_ in rows];return {'name':name,'min_date':min(dates).date().isoformat(),'max_date':max(dates).date().isoformat(),'rows':len(rows)}
 
 temp=read_param(1);wind_dir=read_param(3);wind_speed=read_param(4);prec=read_param(5);humidity=read_param(6);snow=read_param(8);sunshine=read_param(10);visibility=read_param(12);weather=read_param(13);gust=read_param(21)
-temp_a,temp_m=aggregate_temp(temp);wind_s_a,_=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec);hum_a,hum_m=aggregate_mean(humidity);vis_a,vis_m=aggregate_mean(visibility);snow_a,snow_m=aggregate_mean(snow);snow_max_a,_=aggregate_max(snow);gust_max_a,_=aggregate_max(gust);sun_a,sun_m=aggregate_sum_hours(sunshine)
-weather_rows=aggregate_weather(weather);used=sorted({r['code'] for r in weather_rows},key=lambda x:float(x));all_labels=fetch_weather_labels();labels={c:all_labels.get(c,f'Kod {c}') for c in used}
+temp_a,temp_m=aggregate_temp(temp);wind_s_a,wind_s_m=aggregate_mean(wind_speed);wind_d_a,wind_d_m=aggregate_direction(wind_dir);prec_a,prec_m=aggregate_precip(prec);hum_a,hum_m=aggregate_mean(humidity);vis_a,vis_m=aggregate_mean(visibility);snow_cm=[(d,v*100.0) for d,v in snow];snow_a,snow_m=aggregate_mean(snow_cm);snow_max_a,snow_max_m=aggregate_max(snow_cm);gust_max_a,gust_max_m=aggregate_max(gust);wind_max_a,wind_max_m=aggregate_max(wind_speed);sun_a,sun_m=aggregate_sum_hours(sunshine)
+weather_rows=aggregate_weather(weather);used=sorted({r['code'] for r in weather_rows},key=lambda x:float(x));all_labels=fetch_weather_labels();labels={c:all_labels.get(c,f'Kod {c}') for c in used};write_daily_detail(temp,prec,snow,weather)
 all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,snow,sunshine,visibility,weather,gust] for d,_ in rows})
 payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'station':{'id':'162860','name':'Luleå-Kallax Flygplats'},'years':all_years,
  'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m},
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
- 'wind':{'speed_annual':wind_s_a,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'gust_max_annual':gust_max_a,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
+ 'wind':{'speed_annual':wind_s_a,'speed_monthly':wind_s_m,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'max_annual':wind_max_a,'max_monthly':wind_max_m,'gust_max_annual':gust_max_a,'gust_max_monthly':gust_max_m,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
  'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},
- 'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m,'seasons':snow_seasons(snow)},
+ 'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m,'monthly_max':snow_max_m,'seasons':snow_seasons(snow)},
  'sunshine':{'station':{'id':'162015','name':'Luleå Sol'},'annual':sun_a,'monthly_total':sun_m},
  'zero_crossings':zero_crossings(temp),
  'coverage':[coverage(temp,PARAMS[1]),coverage(prec,PARAMS[5]),coverage(weather,PARAMS[13]),coverage(wind_speed,PARAMS[4]),coverage(wind_dir,PARAMS[3]),coverage(gust,PARAMS[21]),coverage(visibility,PARAMS[12]),coverage(humidity,PARAMS[6]),coverage(snow,PARAMS[8]),coverage(sunshine,PARAMS[10])]}
