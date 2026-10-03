@@ -1,4 +1,4 @@
-let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));const MONTH_GREEN='#4f9d69';let temp2Start=null;const dateYearCache={};
+let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));const MONTH_GREEN='#4f9d69';const SUN_YELLOW='#f2c94c';const PRECIP_DARK_BLUE='#163a5f';let temp2Start=null;const dateYearCache={};
 const el=id=>document.getElementById(id);
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 function lineChart(id,labels,datasets,yTitle,extra={}){destroyChart(id);charts[id]=new Chart(el(id),{type:'line',data:{labels,datasets:datasets.map(d=>({borderWidth:2,pointRadius:0,tension:.15,...d}))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false}},y:{title:{display:!!yTitle,text:yTitle}}},...extra}});}
@@ -89,6 +89,28 @@ function selectedAnnualRows(annualRows,monthlyRows,f){
   if(!f.month)return annualRows.filter(r=>inYears(r,f));
   return monthlyRows.filter(r=>inYears(r,f)&&r.month===f.month);
 }
+function precipTypeShares(rows,groupKey){
+  const groups={};
+  rows.forEach(r=>{
+    const k=groupKey(r);
+    if(!groups[k])groups[k]={rain:0,mixed:0,snow:0};
+    groups[k][r.type]=(groups[k][r.type]||0)+r.count;
+  });
+  return Object.keys(groups).sort((a,b)=>+a-+b).map(k=>{
+    const g=groups[k],tot=g.rain+g.mixed+g.snow;
+    return {key:k,rain:tot?100*g.rain/tot:0,mixed:tot?100*g.mixed/tot:0,snow:tot?100*g.snow/tot:0};
+  });
+}
+function renderPrecipTypeChart(id,labels,rows){
+  destroyChart(id);
+  charts[id]=new Chart(el(id),{type:'bar',data:{labels,datasets:[
+    {label:'Regn',data:rows.map(r=>r.rain),stack:'type'},
+    {label:'Snöblandat regn',data:rows.map(r=>r.mixed),stack:'type'},
+    {label:'Snö',data:rows.map(r=>r.snow),stack:'type'}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1).replace('.',',')+' %'}}},
+    scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,title:{display:true,text:'andel (%)'},ticks:{callback:v=>v+' %'}}}}});
+}
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=selectedAnnualRows(DATA.temperature.annual,DATA.temperature.monthly,f);const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
@@ -124,6 +146,14 @@ function render(){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.y)+' mm'}}},
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'mm'},ticks:{precision:0}}}}});
 
+  let pt=DATA.precipitation.types.filter(r=>inYears(r,f));
+  let ptAnnual=pt;if(f.month)ptAnnual=ptAnnual.filter(r=>r.month===f.month);
+  const pta=precipTypeShares(ptAnnual,r=>r.year);
+  renderPrecipTypeChart('precipTypeAnnual',pta.map(r=>r.key),pta);
+  const ptm=precipTypeShares(pt,r=>r.month);
+  const ptmByMonth=months.map((_,i)=>ptm.find(r=>+r.key===i+1)||{key:i+1,rain:0,mixed:0,snow:0});
+  renderPrecipTypeChart('precipTypeMonthly',months,ptmByMonth);
+
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
 
   const ws=(f.month?DATA.wind.speed_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.speed_annual.filter(r=>inYears(r,f))),
@@ -139,8 +169,19 @@ function render(){
   const wd=(f.month?DATA.wind.direction_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.direction_annual.filter(r=>inYears(r,f)));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
   const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
 
-  const va=selectedAnnualRows(DATA.visibility.annual,DATA.visibility.monthly,f);lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
-  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
+  const va=selectedAnnualRows(DATA.visibility.annual,DATA.visibility.monthly,f);
+  const vaVals=va.map(r=>Math.round(r.avg));
+  destroyChart('visibilityAnnual');
+  charts.visibilityAnnual=new Chart(el('visibilityAnnual'),{type:'line',data:{labels:va.map(r=>r.year),datasets:[{data:vaVals,borderWidth:2,pointRadius:0,tension:.15}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.y)+' meter'}}},
+      scales:{x:{grid:{display:false}},y:{title:{display:true,text:'meter'},ticks:{precision:0,callback:v=>Math.round(v)}}}}});
+  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));
+  const vmVals=aggregateMonthlyMean(vm).map(v=>v==null?null:Math.round(v));
+  destroyChart('visibilityMonthly');
+  charts.visibilityMonthly=new Chart(el('visibilityMonthly'),{type:'bar',data:{labels:months,datasets:[{data:vmVals,borderWidth:0,backgroundColor:MONTH_GREEN}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.y)+' meter'}}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'meter'},ticks:{precision:0,callback:v=>Math.round(v)}}}}});
 
   const ha=selectedAnnualRows(DATA.humidity.annual,DATA.humidity.monthly,f);const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
   lineChart('humidityAnnual',haYears,[{label:f.month?months[f.month-1]+' medel':'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
@@ -306,12 +347,12 @@ async function loadDateWeather(dateStr){
 
     const sun=solarTimes(dateStr),sunFractions=sunHourFractions(sun);
     destroyChart('dateSun');
-    charts.dateSun=new Chart(el('dateSun'),{type:'bar',data:{labels:hours,datasets:[{data:sunFractions,borderWidth:0,categoryPercentage:1,barPercentage:1}]},
+    charts.dateSun=new Chart(el('dateSun'),{type:'bar',data:{labels:hours,datasets:[{data:sunFractions,borderWidth:0,categoryPercentage:1,barPercentage:1,backgroundColor:SUN_YELLOW}]},
       options:alignedHourlyOptions('%',100,c=>c.parsed.y+' % av timmen')});
 
     const precipHourly=hourlySum(day.precipitation_hourly||[]);
     destroyChart('datePrecip');
-    charts.datePrecip=new Chart(el('datePrecip'),{type:'bar',data:{labels:hours,datasets:[{data:precipHourly,borderWidth:0,categoryPercentage:1,barPercentage:1}]},
+    charts.datePrecip=new Chart(el('datePrecip'),{type:'bar',data:{labels:hours,datasets:[{data:precipHourly,borderWidth:0,categoryPercentage:1,barPercentage:1,backgroundColor:PRECIP_DARK_BLUE}]},
       options:alignedHourlyOptions('mm',null,c=>(c.parsed.y??0).toLocaleString('sv-SE')+' mm')});
 
     el('dateSummary').innerHTML='<table><tbody>'+

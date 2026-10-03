@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -67,6 +67,8 @@
   <section id="page-precip" class="page">
     <div class="chart-card"><h2>Total nederbörd per år</h2><p id="precipAnnualTrendText" class="hint"></p><canvas id="precipAnnual"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig månadsnederbörd</h2><canvas id="precipMonthly"></canvas></div>
+    <div class="chart-card"><h2>Andel nederbördstyp per år</h2><p class="hint">Andel av klassificerade nederbördsobservationer: regn, snöblandat regn och snö. Tydliga SMHI-väderkoder används direkt; temperatur −2 till +2 °C används bara för tvetydiga nederbördskoder.</p><canvas id="precipTypeAnnual"></canvas></div>
+    <div class="chart-card"><h2>Andel nederbördstyp per månad</h2><p class="hint">Genomsnittlig fördelning inom valt årsintervall.</p><canvas id="precipTypeMonthly"></canvas></div>
   </section>
 
   <section id="page-weather" class="page">
@@ -134,5 +136,5 @@
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body></html>

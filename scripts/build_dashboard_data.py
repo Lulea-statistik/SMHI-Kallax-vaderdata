@@ -145,6 +145,44 @@ def aggregate_weather(rows):
     for d,v in rows:
         code=str(int(v)) if float(v).is_integer() else str(v);c[(d.year,d.month,code)]+=1
     return [{'year':k[0],'month':k[1],'code':k[2],'count':v} for k,v in sorted(c.items())]
+def precipitation_types(weather_rows,temp_rows):
+    # Classify precipitation observations from SMHI present-weather codes.
+    # Explicit rain/snow/mixed codes win. Only ambiguous precipitation codes
+    # use the nearest temperature observation as a fallback.
+    rain_codes=set([20,21,24,25,*range(50,68),*range(80,83),91,92,123,125,143,144,147,148,*range(150,167),*range(180,185),*range(250,268),280,281])
+    mixed_codes=set([23,26,68,69,83,84,93,94,167,168,192,259,279,282])
+    snow_codes=set([22,*range(70,80),85,86,124,145,146,*range(170,179),*range(185,188),*range(270,279),283])
+    ambiguous_codes={122,140,141,142}
+
+    temp_sorted=sorted(temp_rows,key=lambda x:x[0])
+    temp_times=[d for d,_ in temp_sorted]
+    from bisect import bisect_left
+
+    def nearest_temp(dt):
+        if not temp_times:return None
+        i=bisect_left(temp_times,dt)
+        candidates=[]
+        if i<len(temp_sorted):candidates.append(temp_sorted[i])
+        if i>0:candidates.append(temp_sorted[i-1])
+        if not candidates:return None
+        d,v=min(candidates,key=lambda x:abs((x[0]-dt).total_seconds()))
+        if abs((d-dt).total_seconds())>5400:return None
+        return v
+
+    counts=defaultdict(int)
+    for d,v in weather_rows:
+        code=int(v) if float(v).is_integer() else None
+        cat=None
+        if code in mixed_codes:cat='mixed'
+        elif code in rain_codes:cat='rain'
+        elif code in snow_codes:cat='snow'
+        elif code in ambiguous_codes:
+            t=nearest_temp(d)
+            if t is not None:
+                cat='mixed' if -2<=t<=2 else ('snow' if t<-2 else 'rain')
+        if cat:counts[(d.year,d.month,cat)]+=1
+    return [{'year':y,'month':m,'type':cat,'count':n} for (y,m,cat),n in sorted(counts.items())]
+
 def zero_crossings(rows):
     byday=defaultdict(list)
     for d,v in rows:byday[d.date()].append((d,v))
@@ -204,7 +242,7 @@ temp_a,temp_m=aggregate_temp(temp);wind_s_a,wind_s_m=aggregate_mean(wind_speed);
 weather_rows=aggregate_weather(weather);used=sorted({r['code'] for r in weather_rows},key=lambda x:float(x));all_labels=fetch_weather_labels();labels={c:all_labels.get(c,f'Kod {c}') for c in used};write_daily_detail(temp,prec,prec_hourly,snow,weather)
 all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,snow,sunshine,visibility,weather,gust] for d,_ in rows})
 payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'station':{'id':'162860','name':'Luleå-Kallax Flygplats'},'years':all_years,
- 'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m},
+ 'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m,'types':precipitation_types(weather,temp)},
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
  'wind':{'speed_annual':wind_s_a,'speed_monthly':wind_s_m,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'max_annual':wind_max_a,'max_monthly':wind_max_m,'gust_max_annual':gust_max_a,'gust_max_monthly':gust_max_m,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
  'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},
