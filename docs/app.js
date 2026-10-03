@@ -65,12 +65,24 @@ function linearTrend(xs,ys){
 }
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
-  const ta=DATA.temperature.annual.filter(r=>inYears(r,f));lineChart('tempAnnual',ta.map(r=>r.year),[{label:'°C',data:ta.map(r=>r[m])}],'°C');el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
+  const ta=DATA.temperature.annual.filter(r=>inYears(r,f));const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
+  lineChart('tempAnnual',taYears,[{label:name,data:taVals},{label:'Linjär trend',data:linearTrend(taYears,taVals),pointRadius:0,borderDash:[6,4]}],'°C');
+  el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
   let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));if(f.month)tm=tm.filter(r=>r.month===f.month);
   const tMonthAgg=[...Array(12)].map((_,i)=>{const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;return m==='min'?Math.min(...rows.map(r=>r.min)):m==='max'?Math.max(...rows.map(r=>r.max)):rows.reduce((s,r)=>s+r.avg,0)/rows.length;});lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
   renderTemp2();
 
-  const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));barChart('precipAnnual',pa.map(r=>r.year),pa.map(r=>r.sum),'mm');
+  const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));const paYears=pa.map(r=>r.year),paVals=pa.map(r=>r.sum);
+  destroyChart('precipAnnual');
+  charts.precipAnnual=new Chart(el('precipAnnual'),{
+    data:{labels:paYears,datasets:[
+      {type:'bar',label:'Årsnederbörd',data:paVals,borderWidth:0},
+      {type:'line',label:'Linjär trend',data:linearTrend(paYears,paVals),borderWidth:2,pointRadius:0,borderDash:[6,4]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'mm'}}}}
+  });
   let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm',MONTH_GREEN);
 
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
@@ -88,10 +100,21 @@ function render(){
   const va=DATA.visibility.annual.filter(r=>inYears(r,f));lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
   let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
 
-  const ha=DATA.humidity.annual.filter(r=>inYears(r,f));lineChart('humidityAnnual',ha.map(r=>r.year),[{label:'%',data:ha.map(r=>r.avg)}],'%');
+  const ha=DATA.humidity.annual.filter(r=>inYears(r,f));const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
+  lineChart('humidityAnnual',haYears,[{label:'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
   let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
 
-  const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));barChart('sunAnnual',sunA.map(r=>r.year),sunA.map(r=>r.hours),'timmar');
+  const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));const sunYears=sunA.map(r=>r.year),sunVals=sunA.map(r=>r.hours);
+  destroyChart('sunAnnual');
+  charts.sunAnnual=new Chart(el('sunAnnual'),{
+    data:{labels:sunYears,datasets:[
+      {type:'bar',label:'Solskenstid',data:sunVals,borderWidth:0},
+      {type:'line',label:'Linjär trend',data:linearTrend(sunYears,sunVals),borderWidth:2,pointRadius:0,borderDash:[6,4]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'timmar'}}}}
+  });
   let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar',MONTH_GREEN);
 
   const snowA=DATA.snow.annual_mean.filter(r=>inYears(r,f)),snowMax=DATA.snow.annual_max.filter(r=>inYears(r,f));
