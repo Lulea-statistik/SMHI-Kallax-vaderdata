@@ -1,4 +1,4 @@
-let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const MONTH_GREEN='#4f9d69';let temp2Start=null;
+let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const MONTH_GREEN='#4f9d69';let temp2Start=null;const dateYearCache={};
 const el=id=>document.getElementById(id);
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 function lineChart(id,labels,datasets,yTitle,extra={}){destroyChart(id);charts[id]=new Chart(el(id),{type:'line',data:{labels,datasets:datasets.map(d=>({borderWidth:2,pointRadius:0,tension:.15,...d}))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false}},y:{title:{display:!!yTitle,text:yTitle}}},...extra}});}
@@ -85,13 +85,17 @@ function trendRateText(xs,ys,unit,startLabel=null,endLabel=null){
   const from=startLabel??valid[0].label,to=endLabel??valid[valid.length-1].label;
   return 'Från '+from+' till '+to+': '+value+' '+unit+' per 10 år (historisk linjär trend).';
 }
+function selectedAnnualRows(annualRows,monthlyRows,f){
+  if(!f.month)return annualRows.filter(r=>inYears(r,f));
+  return monthlyRows.filter(r=>inYears(r,f)&&r.month===f.month);
+}
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
-  const ta=DATA.temperature.annual.filter(r=>inYears(r,f));const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
+  const ta=selectedAnnualRows(DATA.temperature.annual,DATA.temperature.monthly,f);const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
   lineChart('tempAnnual',taYears,[{label:name,data:taVals},{label:'Linjär trend',data:linearTrend(taYears,taVals),pointRadius:0,borderDash:[6,4]}],'°C');
-  el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
+  el('tempAnnualTitle').textContent=name+' lufttemperatur '+(f.month?'i '+months[f.month-1].toLowerCase():'per år');
   el('tempAnnualTrendText').textContent=trendRateText(taYears,taVals,'°C');
-  let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));if(f.month)tm=tm.filter(r=>r.month===f.month);
+  let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));
   const tMonthAgg=[...Array(12)].map((_,i)=>{
     const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;
     if(m==='min')return Math.min(...rows.map(r=>r.min));
@@ -101,7 +105,7 @@ function render(){
   });lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
   renderTemp2();
 
-  const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));const paYears=pa.map(r=>r.year),paVals=pa.map(r=>r.sum);
+  const pa=selectedAnnualRows(DATA.precipitation.annual,DATA.precipitation.monthly_total,f);const paYears=pa.map(r=>r.year),paVals=pa.map(r=>r.sum);
   destroyChart('precipAnnual');
   charts.precipAnnual=new Chart(el('precipAnnual'),{
     data:{labels:paYears,datasets:[
@@ -113,29 +117,31 @@ function render(){
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'mm'}}}}
   });
   el('precipAnnualTrendText').textContent=trendRateText(paYears,paVals,'mm');
-  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm',MONTH_GREEN);
+  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm',MONTH_GREEN);
 
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
 
-  const ws=DATA.wind.speed_annual.filter(r=>inYears(r,f)),wm=DATA.wind.daily_max_annual.filter(r=>inYears(r,f)),wg=DATA.wind.gust_max_annual.filter(r=>inYears(r,f));
+  const ws=(f.month?DATA.wind.speed_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.speed_annual.filter(r=>inYears(r,f))),
+        wm=(f.month?DATA.wind.max_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.max_annual.filter(r=>inYears(r,f))),
+        wg=(f.month?DATA.wind.gust_max_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.gust_max_annual.filter(r=>inYears(r,f)));
   lineChart('windSpeed',ws.map(r=>r.year),[
     {label:'Årsmedel',data:ws.map(r=>r.avg)},
     {label:'Årets högsta dygnsmaximum',data:ws.map(r=>{const x=wm.find(a=>a.year===r.year);return x?x.max:null;})},
     {label:'Årets högsta byvind',data:ws.map(r=>{const x=wg.find(a=>a.year===r.year);return x?x.max:null;})}
   ],'m/s');
 
-  const wd=DATA.wind.direction_annual.filter(r=>inYears(r,f));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
+  const wd=(f.month?DATA.wind.direction_monthly.filter(r=>inYears(r,f)&&r.month===f.month):DATA.wind.direction_annual.filter(r=>inYears(r,f)));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
   const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
 
-  const va=DATA.visibility.annual.filter(r=>inYears(r,f));lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
-  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
+  const va=selectedAnnualRows(DATA.visibility.annual,DATA.visibility.monthly,f);lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
+  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter',MONTH_GREEN);
 
-  const ha=DATA.humidity.annual.filter(r=>inYears(r,f));const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
+  const ha=selectedAnnualRows(DATA.humidity.annual,DATA.humidity.monthly,f);const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
   lineChart('humidityAnnual',haYears,[{label:'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
   el('humidityAnnualTrendText').textContent=trendRateText(haYears,haVals,'procentenheter');
-  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
+  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
 
-  const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));const sunYears=sunA.map(r=>r.year),sunVals=sunA.map(r=>r.hours);
+  const sunA=selectedAnnualRows(DATA.sunshine.annual,DATA.sunshine.monthly_total,f);const sunYears=sunA.map(r=>r.year),sunVals=sunA.map(r=>r.hours);
   destroyChart('sunAnnual');
   charts.sunAnnual=new Chart(el('sunAnnual'),{
     data:{labels:sunYears,datasets:[
@@ -147,14 +153,20 @@ function render(){
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'timmar'}}}}
   });
   el('sunAnnualTrendText').textContent=trendRateText(sunYears,sunVals,'timmar');
-  let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar',MONTH_GREEN);
+  let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));
+  const sunMonthVals=aggregateMonthlyMean(sunM,'hours').map(v=>v==null?null:Math.round(v));
+  destroyChart('sunMonthly');
+  charts.sunMonthly=new Chart(el('sunMonthly'),{type:'bar',data:{labels:months,datasets:[{data:sunMonthVals,borderWidth:0,backgroundColor:MONTH_GREEN}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.y)+' timmar'}}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'timmar'},ticks:{precision:0,callback:v=>Math.round(v)+' timmar'}}}}});
 
-  const snowA=DATA.snow.annual_mean.filter(r=>inYears(r,f)),snowMax=DATA.snow.annual_max.filter(r=>inYears(r,f));
+  const snowA=selectedAnnualRows(DATA.snow.annual_mean,DATA.snow.monthly,f),
+        snowMax=selectedAnnualRows(DATA.snow.annual_max,DATA.snow.monthly_max,f);
   lineChart('snowAnnual',snowA.map(r=>r.year),[
     {label:'Årsmedel',data:snowA.map(r=>r.avg)},
     {label:'Årets största snödjup',data:snowA.map(r=>{const x=snowMax.find(a=>a.year===r.year);return x?x.max:null;})}
   ],'cm');
-  let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));if(f.month)snowM=snowM.filter(r=>r.month===f.month);barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm',MONTH_GREEN);
+  let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm',MONTH_GREEN);
   const snowSeasons=DATA.snow.seasons.filter(s=>s.start_year>=f.from&&s.end_year<=f.to);
   const seasonLabels=snowSeasons.map(s=>s.label),seasonVals=snowSeasons.map(s=>s.length_days);
   const seasonYears=snowSeasons.map(s=>s.start_year);
@@ -174,12 +186,13 @@ function render(){
   let z=DATA.zero_crossings.filter(r=>inYears(r,f));if(f.month)z=z.filter(r=>r.month===f.month);
   const zy={};z.forEach(r=>zy[r.year]=(zy[r.year]||0)+1);const zYears=Object.keys(zy).map(Number).sort((a,b)=>a-b);barChart('zeroAnnual',zYears,zYears.map(y=>zy[y]),'dygn');
   const tempCoverage=DATA.temperature.monthly.filter(r=>inYears(r,f));
+  const zAllMonths=DATA.zero_crossings.filter(r=>inYears(r,f));
   const zm=[...Array(12)].map((_,i)=>{
     const yearsCovered=new Set(tempCoverage.filter(r=>r.month===i+1).map(r=>r.year)).size;
-    return yearsCovered?z.filter(r=>r.month===i+1).length/yearsCovered:null;
+    return yearsCovered?zAllMonths.filter(r=>r.month===i+1).length/yearsCovered:null;
   });
   barChart('zeroMonthly',months,zm,'dygn per år',MONTH_GREEN);
-  const crossByYear={};DATA.zero_crossings.filter(r=>inYears(r,f)).forEach(r=>{if(!crossByYear[r.year])crossByYear[r.year]={sum:0,n:0};crossByYear[r.year].sum+=r.crossings;crossByYear[r.year].n++;});
+  const crossByYear={};z.forEach(r=>{if(!crossByYear[r.year])crossByYear[r.year]={sum:0,n:0};crossByYear[r.year].sum+=r.crossings;crossByYear[r.year].n++;});
   const trendYears=Object.keys(crossByYear).map(Number).sort((a,b)=>a-b),trendVals=trendYears.map(y=>crossByYear[y].sum/crossByYear[y].n);
   lineChart('zeroTrend',trendYears,[{label:'Genomsnitt',data:trendVals,pointRadius:2},{label:'Linjär trend',data:linearTrend(trendYears,trendVals),pointRadius:0,borderDash:[6,4]}],'genomgångar per dygn');
   el('zeroTrendText').textContent=trendRateText(trendYears,trendVals,'genomgångar/dygn');
@@ -187,8 +200,53 @@ function render(){
 
   el('coverage').innerHTML='<table><thead><tr><th>Parameter</th><th>Från</th><th>Till</th><th>Observationer</th></tr></thead><tbody>'+DATA.coverage.map(r=>'<tr><td>'+r.name+'</td><td>'+r.min_date+'</td><td>'+r.max_date+'</td><td>'+r.rows.toLocaleString('sv-SE')+'</td></tr>').join('')+'</tbody></table>';
 }
+async function loadDateWeather(dateStr){
+  if(!dateStr)return;
+  const year=dateStr.slice(0,4);
+  el('dateWeatherStatus').textContent='Laddar '+dateStr+'…';
+  try{
+    if(!dateYearCache[year]){
+      const r=await fetch('daily/'+year+'.json',{cache:'no-store'});
+      if(!r.ok)throw new Error('Ingen detaljdata för '+year);
+      dateYearCache[year]=await r.json();
+    }
+    const day=dateYearCache[year].days[dateStr];
+    if(!day)throw new Error('Inga observationer för valt datum.');
+    el('dateWeatherStatus').textContent=dateStr;
+    const temps=day.temperature||[];
+    lineChart('dateTemp',temps.map(r=>r.time),[{label:'Temperatur',data:temps.map(r=>r.value),pointRadius:1}],'°C');
+    const tvals=temps.map(r=>r.value).filter(Number.isFinite);
+    const minT=tvals.length?Math.min(...tvals):null,maxT=tvals.length?Math.max(...tvals):null;
+    el('dateSummary').innerHTML='<table><tbody>'+
+      '<tr><th>Nederbörd</th><td>'+(day.precipitation_mm==null?'–':day.precipitation_mm.toLocaleString('sv-SE')+' mm')+'</td></tr>'+
+      '<tr><th>Snödjup</th><td>'+(day.snow_cm==null?'–':day.snow_cm.toLocaleString('sv-SE')+' cm')+'</td></tr>'+
+      '<tr><th>Temperatur min</th><td>'+(minT==null?'–':minT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
+      '<tr><th>Temperatur max</th><td>'+(maxT==null?'–':maxT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
+      '</tbody></table>';
+    const obs=(day.weather||[]).slice().sort((a,b)=>a.time.localeCompare(b.time));
+    destroyChart('dateWeather');
+    const labels=obs.map(r=>r.time);
+    const codes=[...new Set(obs.map(r=>String(r.code)))];
+    const datasets=codes.map(code=>({label:weatherPhenomenon(code)+' (kod '+code+')',data:obs.map(r=>String(r.code)===code?100:null),borderWidth:0}));
+    charts.dateWeather=new Chart(el('dateWeather'),{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:codes.length<=10},tooltip:{callbacks:{label:c=>c.dataset.label}}},
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,ticks:{callback:v=>v+' %'},title:{display:true,text:'registrerat väder'}}}}});
+  }catch(err){
+    el('dateWeatherStatus').textContent=err.message;
+    el('dateSummary').innerHTML='<p class="hint">'+err.message+'</p>';
+    destroyChart('dateTemp');destroyChart('dateWeather');
+  }
+}
+function setupDateWeather(){
+  const picker=el('dateWeatherPicker');
+  const cov=DATA.coverage.find(r=>r.name==='Lufttemperatur')||DATA.coverage[0];
+  if(cov&&cov.min_date&&cov.min_date!=='-')picker.min=cov.min_date;
+  if(cov&&cov.max_date&&cov.max_date!=='-'){picker.max=cov.max_date;picker.value=cov.max_date;}
+  picker.addEventListener('change',()=>loadDateWeather(picker.value));
+  if(picker.value)loadDateWeather(picker.value);
+}
 function syncYear(source,value){let a=+el('yearFrom').value,b=+el('yearTo').value;if(source==='from')a=+value;else b=+value;if(a>b){if(source==='from')b=a;else a=b;}el('yearFrom').value=a;el('yearTo').value=b;el('rangeFrom').value=a;el('rangeTo').value=b;el('rangeFromLabel').textContent=a;el('rangeToLabel').textContent=b;render();}
 function setupTabs(){document.querySelectorAll('#tabs button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));btn.classList.add('active');el('page-'+btn.dataset.page).classList.add('active');setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),50);}));}
 function setupFilters(){const years=DATA.years,min=years[0],max=years[years.length-1];['yearFrom','yearTo'].forEach(id=>el(id).innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join(''));el('yearFrom').value=min;el('yearTo').value=max;['rangeFrom','rangeTo'].forEach(id=>{el(id).min=min;el(id).max=max;el(id).step=1;});el('rangeFrom').value=min;el('rangeTo').value=max;el('rangeFromLabel').textContent=min;el('rangeToLabel').textContent=max;el('yearFrom').addEventListener('change',e=>syncYear('from',e.target.value));el('yearTo').addEventListener('change',e=>syncYear('to',e.target.value));el('rangeFrom').addEventListener('input',e=>syncYear('from',e.target.value));el('rangeTo').addEventListener('input',e=>syncYear('to',e.target.value));el('month').addEventListener('change',render);el('tempMetric').addEventListener('change',render);el('weatherCode').addEventListener('change',render);el('resetFilters').addEventListener('click',()=>{syncYear('from',min);syncYear('to',max);el('month').value='0';render();});}
 function setupWeatherCodes(){const codes=[...new Set(DATA.weather.codes.map(r=>String(r.code)))].sort((a,b)=>Number(a)-Number(b));el('weatherCode').innerHTML='<option value="all">Alla koder</option>'+codes.map(c=>'<option value="'+c+'">'+c+' – '+(DATA.weather.labels[c]||('Kod '+c))+'</option>').join('');el('weatherCode').value='all';}
-fetch('dashboard_data.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('dashboard_data.json saknas');return r.json();}).then(d=>{DATA=d;el('updated').textContent='Data uppdaterad: '+(d.generated_at||'okänt');el('weatherSource').href=d.weather.source_url;setupWeatherCodes();setupTemp2Slider();setupTabs();setupFilters();render();}).catch(err=>{document.querySelector('main').innerHTML='<div class="chart-card"><h2>Rapportdata saknas</h2><p>'+err.message+'</p></div>';});
+fetch('dashboard_data.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('dashboard_data.json saknas');return r.json();}).then(d=>{DATA=d;el('updated').textContent='Data uppdaterad: '+(d.generated_at||'okänt');el('weatherSource').href=d.weather.source_url;setupWeatherCodes();setupTemp2Slider();setupTabs();setupFilters();setupDateWeather();render();}).catch(err=>{document.querySelector('main').innerHTML='<div class="chart-card"><h2>Rapportdata saknas</h2><p>'+err.message+'</p></div>';});
