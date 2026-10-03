@@ -85,6 +85,16 @@ def aggregate_direction(rows):
         p=direction_parts(vals)
         if p:monthly.append({'year':k[0],'month':k[1],**p})
     return annual,monthly
+def aggregate_direction_sectors(rows):
+    names=['N','NO','O','SO','S','SV','V','NV']
+    counts=defaultdict(int)
+    for d,v in rows:
+        if v==0:continue
+        deg=v%360
+        idx=int(((deg+22.5)%360)//45)
+        counts[(d.year,d.month,names[idx])]+=1
+    return [{'year':y,'month':m,'direction':name,'count':n} for (y,m,name),n in sorted(counts.items())]
+
 def aggregate_daily_max_annual(rows):
     daily=defaultdict(list)
     for d,v in rows:daily[d.date()].append(v)
@@ -244,7 +254,7 @@ all_years=sorted({d.year for rows in [temp,wind_dir,wind_speed,prec,humidity,sno
 payload={'generated_at':datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'station':{'id':'162860','name':'Luleå-Kallax Flygplats'},'years':all_years,
  'temperature':{'annual':temp_a,'monthly':temp_m},'precipitation':{'annual':prec_a,'monthly_total':prec_m,'types':precipitation_types(weather,temp)},
  'weather':{'codes':weather_rows,'labels':labels,'source_url':WEATHER_CODES_URL},
- 'wind':{'speed_annual':wind_s_a,'speed_monthly':wind_s_m,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'max_annual':wind_max_a,'max_monthly':wind_max_m,'gust_max_annual':gust_max_a,'gust_max_monthly':gust_max_m,'direction_annual':wind_d_a,'direction_monthly':wind_d_m},
+ 'wind':{'speed_annual':wind_s_a,'speed_monthly':wind_s_m,'daily_max_annual':aggregate_daily_max_annual(wind_speed),'max_annual':wind_max_a,'max_monthly':wind_max_m,'gust_max_annual':gust_max_a,'gust_max_monthly':gust_max_m,'direction_annual':wind_d_a,'direction_monthly':wind_d_m,'direction_sectors':aggregate_direction_sectors(wind_dir)},
  'visibility':{'annual':vis_a,'monthly':vis_m},'humidity':{'annual':hum_a,'monthly':hum_m},
  'snow':{'annual_mean':snow_a,'annual_max':snow_max_a,'monthly':snow_m,'monthly_max':snow_max_m,'seasons':snow_seasons(snow)},
  'sunshine':{'station':{'id':'162015','name':'Luleå Sol'},'annual':sun_a,'monthly_total':sun_m},
