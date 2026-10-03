@@ -9,10 +9,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div>
-    <h1>SMHI Kallax – klimatrapport</h1>
-    <p>Luleå-Kallax Flygplats · station 162860</p>
-  </div>
+  <div><h1>SMHI Kallax – klimatrapport</h1><p>Luleå-Kallax Flygplats · station 162860</p></div>
   <div id="updated" class="updated"></div>
 </header>
 
@@ -27,80 +24,81 @@
 
 <main>
   <section class="filters">
-    <label>Från år
-      <select id="yearFrom"></select>
-    </label>
-    <label>Till år
-      <select id="yearTo"></select>
-    </label>
+    <label>Från år<select id="yearFrom"></select></label>
+    <label>Till år<select id="yearTo"></select></label>
     <label>Månad
       <select id="month">
         <option value="0">Alla månader</option>
-        <option value="1">Januari</option><option value="2">Februari</option>
-        <option value="3">Mars</option><option value="4">April</option>
-        <option value="5">Maj</option><option value="6">Juni</option>
-        <option value="7">Juli</option><option value="8">Augusti</option>
-        <option value="9">September</option><option value="10">Oktober</option>
-        <option value="11">November</option><option value="12">December</option>
+        <option value="1">Januari</option><option value="2">Februari</option><option value="3">Mars</option>
+        <option value="4">April</option><option value="5">Maj</option><option value="6">Juni</option>
+        <option value="7">Juli</option><option value="8">Augusti</option><option value="9">September</option>
+        <option value="10">Oktober</option><option value="11">November</option><option value="12">December</option>
       </select>
     </label>
     <button id="resetFilters">Återställ</button>
+    <div class="year-slider">
+      <div class="slider-head"><span>Årsintervall</span><strong id="sliderLabel"></strong></div>
+      <div class="range-wrap">
+        <input id="rangeFrom" type="range">
+        <input id="rangeTo" type="range">
+      </div>
+    </div>
   </section>
 
   <section id="page-temp1" class="page active">
-    <div class="chart-card">
-      <h2>Genomsnittlig lufttemperatur per år</h2>
-      <canvas id="tempAnnual"></canvas>
-    </div>
-    <div class="chart-card">
-      <h2>Genomsnittlig lufttemperatur per månad</h2>
-      <canvas id="tempMonthly"></canvas>
-    </div>
+    <div class="chart-card"><h2>Genomsnittlig lufttemperatur per år</h2><canvas id="tempAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig lufttemperatur per månad</h2><canvas id="tempMonthly"></canvas></div>
   </section>
 
   <section id="page-temp2" class="page">
-    <div class="chart-card tall">
-      <h2>Månadsprofil temperatur per år</h2>
-      <p class="hint">Visar upp till de 10 senaste åren inom valt intervall för att hålla diagrammet läsbart.</p>
-      <canvas id="tempProfiles"></canvas>
+    <div class="chart-card tall"><h2>Månadsprofil temperatur per år</h2>
+      <p class="hint">Visar upp till de 10 senaste åren inom valt intervall.</p><canvas id="tempProfiles"></canvas>
     </div>
   </section>
 
   <section id="page-precip" class="page">
-    <div class="chart-card">
-      <h2>Total nederbörd per år</h2>
-      <canvas id="precipAnnual"></canvas>
-    </div>
-    <div class="chart-card">
-      <h2>Genomsnittlig dygnsnederbörd per månad</h2>
-      <canvas id="precipMonthly"></canvas>
-    </div>
+    <div class="chart-card"><h2>Total nederbörd per år</h2><canvas id="precipAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig dygnsnederbörd per månad</h2><canvas id="precipMonthly"></canvas></div>
   </section>
 
   <section id="page-weather" class="page">
     <div class="chart-card tall">
-      <h2>Rådande väder – antal observationer per kod</h2>
+      <div class="title-row"><h2>Rådande väder – andel observationer per år</h2>
+        <a id="weatherSource" target="_blank" rel="noopener">SMHI:s kodtabell</a></div>
+      <p class="hint">100 % staplat. Varje färg är en SMHI-kod och varje år summerar till 100 %.</p>
       <canvas id="weatherCodes"></canvas>
-      <p class="hint">Koderna visas oförändrade från SMHI-datat. Kodbeskrivningar kan läggas till i nästa steg.</p>
     </div>
   </section>
 
-  <section id="page-wind" class="page">
+  <section id="page-wind" class="page wind-grid">
     <div class="chart-card">
-      <h2>Genomsnittlig vindhastighet per år</h2>
+      <h2>Vindhastighet per år</h2>
+      <p class="hint">Årsmedel samt högsta observerade dygnsmax av 10-minuters medelvind.</p>
       <canvas id="windSpeed"></canvas>
     </div>
     <div class="chart-card">
       <h2>Genomsnittlig vindriktning per år</h2>
+      <p class="hint">Beräknas som cirkulärt medelvärde. Hovra över linjen för att uppdatera kompassen.</p>
       <canvas id="windDirection"></canvas>
+    </div>
+    <div class="chart-card compass-card">
+      <h2>Så läses vindriktning</h2>
+      <div class="compass" id="compass">
+        <span class="n">N<br><small>0°/360°</small></span>
+        <span class="e">O<br><small>90°</small></span>
+        <span class="s">S<br><small>180°</small></span>
+        <span class="w">V<br><small>270°</small></span>
+        <div class="compass-ring"></div>
+        <div class="wind-arrow" id="windArrow"></div>
+        <div class="compass-dot"></div>
+      </div>
+      <div id="windCompassText" class="compass-text">170° = vind från nästan syd</div>
+      <p class="hint">SMHI anger riktningen som den riktning vinden kommer <b>från</b>. 360° = norr, 90° = öster. </p>
     </div>
   </section>
 
   <section id="page-data" class="page">
-    <div class="chart-card">
-      <h2>Datatäckning</h2>
-      <div id="coverage"></div>
-    </div>
+    <div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div>
   </section>
 </main>
 
