@@ -30,6 +30,13 @@ function weatherPhenomenon(code){
   if(n<=89) return 'Skurar'; if(n<=99) return 'Åska';
   return 'Väderfenomen';
 }
+function normalizedWeatherPhenomenon(code,year){
+  const label=weatherPhenomenon(code);
+  if(year>=1949&&year<=1981&&['Moln utvecklas','Oförändrad molnighet','Moln upplöses'].includes(label)){
+    return 'Klart eller oförändrat väder';
+  }
+  return label;
+}
 function setupTemp2Slider(){
   const years=[...DATA.years].sort((a,b)=>a-b);
   const minStart=years[0],maxStart=years[years.length-1]-9;
@@ -49,15 +56,32 @@ function weatherChart(rows){
   const selected=el('weatherCode').value;
   const years=[...new Set(rows.map(r=>r.year))].sort((a,b)=>a-b);
   const totals={};rows.forEach(r=>totals[r.year]=(totals[r.year]||0)+r.count);
+
+  const categories=[...new Set(rows.map(r=>normalizedWeatherPhenomenon(r.code,r.year)))].sort((a,b)=>a.localeCompare(b,'sv'));
   if(selected==='all'){
-    const codes=[...new Set(rows.map(r=>String(r.code)))].sort((a,b)=>Number(a)-Number(b));
-    const datasets=codes.map(code=>({label:weatherPhenomenon(code),data:years.map(y=>{const n=rows.filter(r=>r.year===y&&String(r.code)===code).reduce((s,r)=>s+r.count,0);return totals[y]?100*n/totals[y]:0;}),borderWidth:0}));
-    charts.weatherCodes=new Chart(el('weatherCodes'),{type:'bar',data:{labels:years,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:true},plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{title:items=>String(items[0].label),label:c=>(c.dataset.label||'')+': '+c.parsed.y.toFixed(1)+' %'}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,title:{display:true,text:'Andel observationer (%)'},ticks:{callback:v=>v+' %'}}}}});
-    el('weatherTitle').textContent='Rådande väder – fördelning per år';el('weatherHint').textContent='Alla koder visas som andel av årets observationer. Välj en kod ovan om du vill följa bara den.';
+    const datasets=categories.map(category=>({
+      label:category,
+      data:years.map(y=>{
+        const n=rows.filter(r=>r.year===y&&normalizedWeatherPhenomenon(r.code,r.year)===category).reduce((s,r)=>s+r.count,0);
+        return totals[y]?100*n/totals[y]:0;
+      }),
+      borderWidth:0
+    }));
+    charts.weatherCodes=new Chart(el('weatherCodes'),{type:'bar',data:{labels:years,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:true},
+      plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{title:items=>String(items[0].label),label:c=>(c.dataset.label||'')+': '+c.parsed.y.toFixed(1)+' %'}}},
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,title:{display:true,text:'Andel observationer (%)'},ticks:{callback:v=>v+' %'}}}}});
+    el('weatherTitle').textContent='Rådande väder – fördelning per år';
+    el('weatherHint').textContent='Väderkoder med samma betydelse är sammanslagna till gemensamma vädertyper för att färgerna ska vara jämförbara över tid.';
   }else{
-    const vals=years.map(y=>{const n=rows.filter(r=>r.year===y&&String(r.code)===selected).reduce((s,r)=>s+r.count,0);return totals[y]?100*n/totals[y]:0;});
-    charts.weatherCodes=new Chart(el('weatherCodes'),{type:'bar',data:{labels:years,datasets:[{data:vals,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{title:items=>String(items[0].label),label:c=>c.parsed.y.toFixed(1)+' %'}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,max:100,title:{display:true,text:'Andel observationer (%)'},ticks:{callback:v=>v+' %'}}}}});
-    el('weatherTitle').textContent=weatherPhenomenon(selected)+' – andel observationer per år';el('weatherHint').textContent='Andel av samtliga väderobservationer det året som har vald kod.';
+    const vals=years.map(y=>{
+      const n=rows.filter(r=>r.year===y&&normalizedWeatherPhenomenon(r.code,r.year)===selected).reduce((s,r)=>s+r.count,0);
+      return totals[y]?100*n/totals[y]:0;
+    });
+    charts.weatherCodes=new Chart(el('weatherCodes'),{type:'bar',data:{labels:years,datasets:[{label:selected,data:vals,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{title:items=>String(items[0].label),label:c=>selected+': '+c.parsed.y.toFixed(1)+' %'}}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,max:100,title:{display:true,text:'Andel observationer (%)'},ticks:{callback:v=>v+' %'}}}}});
+    el('weatherTitle').textContent=selected+' – andel observationer per år';
+    el('weatherHint').textContent='Andel av samtliga väderobservationer det året som tillhör vald vädertyp.';
   }
 }
 function aggregateMonthlyMean(rows,key='avg'){return [...Array(12)].map((_,i)=>{const a=rows.filter(r=>r.month===i+1).map(r=>r[key]).filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;});}
@@ -432,5 +456,9 @@ el('resetFilters').addEventListener('click',()=>{
   el('rangeFromLabel').textContent=min;el('rangeToLabel').textContent=max;
   el('month').value='0';updateRangeTrack();render();
 });}
-function setupWeatherCodes(){const codes=[...new Set(DATA.weather.codes.map(r=>String(r.code)))].sort((a,b)=>Number(a)-Number(b));el('weatherCode').innerHTML='<option value="all">Alla koder</option>'+codes.map(c=>'<option value="'+c+'">'+c+' – '+(DATA.weather.labels[c]||('Kod '+c))+'</option>').join('');el('weatherCode').value='all';}
+function setupWeatherCodes(){
+  const types=[...new Set(DATA.weather.codes.map(r=>normalizedWeatherPhenomenon(r.code,r.year)))].sort((a,b)=>a.localeCompare(b,'sv'));
+  el('weatherCode').innerHTML='<option value="all">Alla vädertyper</option>'+types.map(t=>'<option value="'+t+'">'+t+'</option>').join('');
+  el('weatherCode').value='all';
+}
 fetch('dashboard_data.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('dashboard_data.json saknas');return r.json();}).then(d=>{DATA=d;el('updated').textContent='Data uppdaterad: '+(d.generated_at||'okänt');el('weatherSource').href=d.weather.source_url;setupWeatherCodes();setupTemp2Slider();setupTabs();setupFilters();setupDateWeather();render();}).catch(err=>{document.querySelector('main').innerHTML='<div class="chart-card"><h2>Rapportdata saknas</h2><p>'+err.message+'</p></div>';});
