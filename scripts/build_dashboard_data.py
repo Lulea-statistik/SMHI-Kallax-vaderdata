@@ -77,15 +77,41 @@ def aggregate_sum_hours(rows):
     for d,v in rows:y[d.year]+=v;ym[(d.year,d.month)]+=v
     return ([{'year':k,'hours':r2(v/3600.0)} for k,v in sorted(y.items())],[{'year':k[0],'month':k[1],'hours':r2(v/3600.0)} for k,v in sorted(ym.items())])
 def snow_seasons(rows):
-    seasons=defaultdict(list)
+    # Kallax snow-depth observations can omit weekends. Define stable snow cover
+    # as 5 consecutive available observations > 0 with no gap > 3 calendar days.
+    by_season=defaultdict(dict)
     for d,v in rows:
         season_start=d.year if d.month>=8 else d.year-1
-        if v>0:seasons[season_start].append(d.date())
+        by_season[season_start][d.date()]=max(v,by_season[season_start].get(d.date(),float('-inf')))
+
+    def stable_start(obs,window=5,max_gap_days=3):
+        positives=[day for day,val in obs if val>0]
+        for i in range(0,len(positives)-window+1):
+            seq=positives[i:i+window]
+            if all((seq[j]-seq[j-1]).days<=max_gap_days for j in range(1,len(seq))):
+                return seq[0]
+        return None
+
+    def stable_end(obs,window=5,max_gap_days=3):
+        positives=[day for day,val in obs if val>0]
+        for i in range(len(positives)-1,window-2,-1):
+            seq=positives[i-window+1:i+1]
+            if all((seq[j]-seq[j-1]).days<=max_gap_days for j in range(1,len(seq))):
+                return seq[-1]
+        return None
+
     out=[]
-    for start,days in sorted(seasons.items()):
-        if not days:continue
-        first=min(days);last=max(days)
-        out.append({'start_year':start,'end_year':start+1,'label':f'{start}/{str(start+1)[-2:]}','first_snow':first.isoformat(),'last_snow':last.isoformat(),'length_days':(last-first).days+1,'snow_days_observed':len(set(days))})
+    for start,daymap in sorted(by_season.items()):
+        obs=sorted(daymap.items())
+        first=stable_start(obs);last=stable_end(obs)
+        if not first or not last or last<first:continue
+        snow_days=sum(1 for day,val in obs if first<=day<=last and val>0)
+        out.append({
+            'start_year':start,'end_year':start+1,'label':f'{start}/{str(start+1)[-2:]}',
+            'first_snow':first.isoformat(),'last_snow':last.isoformat(),
+            'length_days':(last-first).days+1,'snow_days_observed':snow_days,
+            'definition':'5 consecutive observations > 0 cm, max 3-day gap'
+        })
     return out
 def aggregate_weather(rows):
     c=defaultdict(int)
