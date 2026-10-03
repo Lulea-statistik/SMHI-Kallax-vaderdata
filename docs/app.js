@@ -89,6 +89,28 @@ function selectedAnnualRows(annualRows,monthlyRows,f){
   if(!f.month)return annualRows.filter(r=>inYears(r,f));
   return monthlyRows.filter(r=>inYears(r,f)&&r.month===f.month);
 }
+function precipTypeShares(rows,groupKey){
+  const groups={};
+  rows.forEach(r=>{
+    const k=groupKey(r);
+    if(!groups[k])groups[k]={rain:0,mixed:0,snow:0};
+    groups[k][r.type]=(groups[k][r.type]||0)+r.count;
+  });
+  return Object.keys(groups).sort((a,b)=>+a-+b).map(k=>{
+    const g=groups[k],tot=g.rain+g.mixed+g.snow;
+    return {key:k,rain:tot?100*g.rain/tot:0,mixed:tot?100*g.mixed/tot:0,snow:tot?100*g.snow/tot:0};
+  });
+}
+function renderPrecipTypeChart(id,labels,rows){
+  destroyChart(id);
+  charts[id]=new Chart(el(id),{type:'bar',data:{labels,datasets:[
+    {label:'Regn',data:rows.map(r=>r.rain),stack:'type'},
+    {label:'Snöblandat regn',data:rows.map(r=>r.mixed),stack:'type'},
+    {label:'Snö',data:rows.map(r=>r.snow),stack:'type'}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1).replace('.',',')+' %'}}},
+    scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,title:{display:true,text:'andel (%)'},ticks:{callback:v=>v+' %'}}}}});
+}
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=selectedAnnualRows(DATA.temperature.annual,DATA.temperature.monthly,f);const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
