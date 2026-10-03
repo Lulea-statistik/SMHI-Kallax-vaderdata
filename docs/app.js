@@ -102,12 +102,13 @@ function render(){
   let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));if(f.month)snowM=snowM.filter(r=>r.month===f.month);barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm',MONTH_GREEN);
   const snowSeasons=DATA.snow.seasons.filter(s=>s.start_year>=f.from&&s.end_year<=f.to);
   const seasonLabels=snowSeasons.map(s=>s.label),seasonVals=snowSeasons.map(s=>s.length_days);
-  const seasonAvg=seasonVals.length?seasonVals.reduce((a,b)=>a+b,0)/seasonVals.length:null;
+  const seasonYears=snowSeasons.map(s=>s.start_year);
+  const seasonTrend=linearTrend(seasonYears,seasonVals);
   destroyChart('snowSeason');
   charts.snowSeason=new Chart(el('snowSeason'),{
     data:{labels:seasonLabels,datasets:[
       {type:'bar',label:'Säsongslängd',data:seasonVals,borderWidth:0},
-      {type:'line',label:'Medel',data:seasonVals.map(()=>seasonAvg),borderWidth:2,pointRadius:0,borderDash:[6,4]}
+      {type:'line',label:'Linjär trend',data:seasonTrend,borderWidth:2,pointRadius:0,borderDash:[6,4]}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'–':c.parsed.y.toFixed(1))+' dygn'}}},
