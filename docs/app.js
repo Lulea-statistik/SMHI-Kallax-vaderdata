@@ -206,6 +206,29 @@ function render(){
 
   el('coverage').innerHTML='<table><thead><tr><th>Parameter</th><th>Från</th><th>Till</th><th>Observationer</th></tr></thead><tbody>'+DATA.coverage.map(r=>'<tr><td>'+r.name+'</td><td>'+r.min_date+'</td><td>'+r.max_date+'</td><td>'+r.rows.toLocaleString('sv-SE')+'</td></tr>').join('')+'</tbody></table>';
 }
+function solarTimes(dateStr,lat=65.543,lon=22.124){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const rad=Math.PI/180,deg=180/Math.PI;
+  const jd=Math.floor((Date.UTC(y,m-1,d)-Date.UTC(2000,0,1,12))/86400000)+2451545.0;
+  const n=jd-2451545.0+0.0008;
+  const jStar=n-lon/360;
+  const M=(357.5291+0.98560028*jStar)%360;
+  const C=1.9148*Math.sin(M*rad)+0.0200*Math.sin(2*M*rad)+0.0003*Math.sin(3*M*rad);
+  const lambda=(M+C+180+102.9372)%360;
+  const jTransit=2451545.0+jStar+0.0053*Math.sin(M*rad)-0.0069*Math.sin(2*lambda*rad);
+  const delta=Math.asin(Math.sin(lambda*rad)*Math.sin(23.44*rad));
+  const h0=-0.833*rad;
+  const cosOmega=(Math.sin(h0)-Math.sin(lat*rad)*Math.sin(delta))/(Math.cos(lat*rad)*Math.cos(delta));
+  if(cosOmega<-1||cosOmega>1)return {sunrise:null,sunset:null,dayLength:null};
+  const omega=Math.acos(cosOmega)*deg;
+  const jSet=jTransit+omega/360;
+  const jRise=jTransit-omega/360;
+  const jdToDate=j=>new Date((j-2440587.5)*86400000);
+  const fmt=t=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hour12:false}).format(t);
+  const rise=jdToDate(jRise),set=jdToDate(jSet);
+  const mins=Math.round((set-rise)/60000);
+  return {sunrise:fmt(rise),sunset:fmt(set),dayLength:Math.floor(mins/60)+' h '+String(mins%60).padStart(2,'0')+' min'};
+}
 async function loadDateWeather(dateStr){
   if(!dateStr)return;
   const year=dateStr.slice(0,4);
@@ -223,12 +246,16 @@ async function loadDateWeather(dateStr){
     lineChart('dateTemp',temps.map(r=>r.time),[{label:'Temperatur',data:temps.map(r=>r.value),pointRadius:1}],'°C');
     const tvals=temps.map(r=>r.value).filter(Number.isFinite);
     const minT=tvals.length?Math.min(...tvals):null,maxT=tvals.length?Math.max(...tvals):null;
+    const sun=solarTimes(dateStr);
     el('dateSummary').innerHTML='<table><tbody>'+
       '<tr><th>Nederbörd</th><td>'+(day.precipitation_mm==null?'–':day.precipitation_mm.toLocaleString('sv-SE')+' mm')+'</td></tr>'+
       '<tr><th>Snödjup</th><td>'+(day.snow_cm==null?'–':day.snow_cm.toLocaleString('sv-SE')+' cm')+'</td></tr>'+
       '<tr><th>Temperatur min</th><td>'+(minT==null?'–':minT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
       '<tr><th>Temperatur max</th><td>'+(maxT==null?'–':maxT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
-      '</tbody></table>';
+      '<tr><th>Soluppgång</th><td>'+(sun.sunrise??'–')+'</td></tr>'+
+      '<tr><th>Solnedgång</th><td>'+(sun.sunset??'–')+'</td></tr>'+
+      '<tr><th>Dagslängd</th><td>'+(sun.dayLength??'–')+'</td></tr>'+
+      '</tbody></table><p class="hint">Soltider beräknade för Luleå-Kallax (65,5430° N, 22,1240° Ö) och visas i svensk lokal tid.</p>';
     const obs=(day.weather||[]).slice().sort((a,b)=>a.time.localeCompare(b.time));
     destroyChart('dateWeather');
     const labels=obs.map(r=>r.time);
