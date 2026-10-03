@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -19,6 +19,8 @@
   <button data-page="wind">Vind</button>
   <button data-page="visibility">Sikt</button>
   <button data-page="humidity">Luftfuktighet</button>
+  <button data-page="sunshine">Solskenstid</button>
+  <button data-page="snow">Snödjup</button>
   <button data-page="zerocross">Nollgenomgångar</button>
   <button data-page="data">Data</button>
 </nav>
@@ -74,7 +76,7 @@
   </section>
 
   <section id="page-wind" class="page wind-grid">
-    <div class="chart-card"><h2>Vindhastighet per år</h2><p class="hint">Årsmedel samt årets högsta dygnsmaximum av observerad 10-minuters medelvind.</p><canvas id="windSpeed"></canvas></div>
+    <div class="chart-card"><h2>Vindhastighet per år</h2><p class="hint">Årsmedel, årets högsta dygnsmaximum av 10-minuters medelvind samt årets högsta byvind.</p><canvas id="windSpeed"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per år</h2><p class="hint">Cirkulärt medelvärde.</p><canvas id="windDirection"></canvas></div>
     <div class="chart-card"><h2>Genomsnittlig vindriktning per månad</h2><p class="hint">Cirkulärt medel för varje månad inom valt årsintervall.</p><canvas id="windDirectionMonthly"></canvas></div>
     <div class="chart-card compass-card">
@@ -94,13 +96,24 @@
     <div class="chart-card"><h2>Genomsnittlig relativ luftfuktighet per månad</h2><canvas id="humidityMonthly"></canvas></div>
   </section>
 
+  <section id="page-sunshine" class="page">
+    <div class="chart-card"><h2>Solskenstid per år</h2><p class="hint">Källa: SMHI Luleå Sol, station 162015.</p><canvas id="sunAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittlig solskenstid per månad</h2><canvas id="sunMonthly"></canvas></div>
+  </section>
+
+  <section id="page-snow" class="page">
+    <div class="chart-card"><h2>Snödjup per år</h2><p class="hint">Årsmedel och årets största uppmätta snödjup.</p><canvas id="snowAnnual"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittligt snödjup per månad</h2><canvas id="snowMonthly"></canvas></div>
+  </section>
+
   <section id="page-zerocross" class="page">
     <div class="chart-card"><h2>Dygn med nollgenomgång per år</h2><p class="hint">Ett dygn räknas när temperaturserien byter sida om 0 °C minst en gång.</p><canvas id="zeroAnnual"></canvas></div>
     <div class="chart-card"><h2>Genomsnittligt antal dygn med nollgenomgång per månad</h2><canvas id="zeroMonthly"></canvas></div>
+    <div class="chart-card"><h2>Genomsnittligt antal genomgångar per nollgenomgångsdygn</h2><p class="hint">Visar om antalet passager över/under 0 °C under ett nollgenomgångsdygn förändras över tid.</p><canvas id="zeroTrend"></canvas></div>
     <div class="chart-card full"><h2>Vilka dygn hade nollgenomgång?</h2><div id="zeroTable" class="table-scroll"></div></div>
   </section>
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body></html>
