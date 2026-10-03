@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -114,7 +114,7 @@
   </section>
 
   <section id="page-zerocross" class="page">
-    <div class="chart-card"><h2>Dygn med nollgenomgång per år</h2><p class="hint">Ett dygn räknas när temperaturserien byter sida om 0 °C minst en gång.</p><canvas id="zeroAnnual"></canvas></div>
+    <div class="chart-card"><h2>Dygn med nollgenomgång per år</h2><p class="hint">Ett dygn räknas när temperaturserien byter sida om 0 °C minst en gång.</p><p id="zeroAnnualTrendText" class="hint"></p><canvas id="zeroAnnual"></canvas></div>
     <div class="chart-card"><h2>Genomsnittligt antal dygn med nollgenomgång per månad</h2><canvas id="zeroMonthly"></canvas></div>
     <div class="chart-card"><h2>Genomsnittligt antal genomgångar per nollgenomgångsdygn</h2><p class="hint">Visar om antalet passager över/under 0 °C under ett nollgenomgångsdygn förändras över tid.</p><p id="zeroTrendText" class="hint"></p><canvas id="zeroTrend"></canvas></div>
     <div class="chart-card full"><h2>Vilka dygn hade nollgenomgång?</h2><p class="hint"><b>Observationer</b> = antal temperaturmätningar från Kallax under dygnet som användes för att avgöra om temperaturen passerade 0 °C. Det är alltså inte antal nollgenomgångar.</p><div id="zeroTable" class="table-scroll"></div></div>
@@ -125,12 +125,14 @@
       <label>Datum<input id="dateWeatherPicker" type="date"></label>
       <span id="dateWeatherStatus" class="hint"></span>
     </div>
-    <div class="chart-card"><h2>Temperatur under dygnet</h2><canvas id="dateTemp"></canvas></div>
-    <div class="chart-card"><h2>Dygnsvärden</h2><div id="dateSummary"></div></div>
-    <div class="chart-card"><h2>Rådande väder under dygnet</h2><p class="hint">Varje stapel motsvarar en väderobservation. Stapeln är 100 % och visar vilket väder som registrerades vid tidpunkten.</p><canvas id="dateWeather"></canvas></div>
+    <div class="chart-card full date-aligned"><h2>Dygnsvärden</h2><div id="dateSummary"></div></div>
+    <div class="chart-card full date-aligned"><h2>Temperatur under dygnet</h2><canvas id="dateTemp"></canvas></div>
+    <div class="chart-card full date-aligned"><h2>Sol över horisonten</h2><p class="hint">Andel av varje klocktimme som solen är över horisonten, beräknad från soluppgång och solnedgång.</p><canvas id="dateSun"></canvas></div>
+    <div class="chart-card full date-aligned"><h2>Nederbörd per timme</h2><p class="hint">SMHI parameter 7, nederbördsmängd under timmen. Serien finns från 2013.</p><canvas id="datePrecip"></canvas></div>
+    <div class="chart-card full date-aligned"><h2>Rådande väder under dygnet</h2><p class="hint">En stapel per klocktimme. 100 % betyder det väder som registrerades den timmen.</p><canvas id="dateWeather"></canvas></div>
   </section>
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body></html>

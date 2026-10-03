@@ -16,3 +16,5 @@ main{padding:18px}.filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap;
 
 .temp2-window input[type=range]::-webkit-slider-thumb{width:20px;height:20px;border-radius:50%;cursor:grab}
 .temp2-window input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;cursor:grab}
+
+#page-dateweather.active{grid-template-columns:1fr}.date-aligned{min-height:300px}.date-aligned canvas{max-height:235px}

@@ -1,4 +1,4 @@
-let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const MONTH_GREEN='#4f9d69';let temp2Start=null;const dateYearCache={};
+let DATA=null;const charts={};const months=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));const MONTH_GREEN='#4f9d69';let temp2Start=null;const dateYearCache={};
 const el=id=>document.getElementById(id);
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 function lineChart(id,labels,datasets,yTitle,extra={}){destroyChart(id);charts[id]=new Chart(el(id),{type:'line',data:{labels,datasets:datasets.map(d=>({borderWidth:2,pointRadius:0,tension:.15,...d}))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false}},y:{title:{display:!!yTitle,text:yTitle}}},...extra}});}
@@ -190,7 +190,19 @@ function render(){
   });
 
   let z=DATA.zero_crossings.filter(r=>inYears(r,f));if(f.month)z=z.filter(r=>r.month===f.month);
-  const zy={};z.forEach(r=>zy[r.year]=(zy[r.year]||0)+1);const zYears=Object.keys(zy).map(Number).sort((a,b)=>a-b);barChart('zeroAnnual',zYears,zYears.map(y=>zy[y]),'dygn');
+  const zy={};z.forEach(r=>zy[r.year]=(zy[r.year]||0)+1);
+  const zYears=Object.keys(zy).map(Number).sort((a,b)=>a-b),zVals=zYears.map(y=>zy[y]);
+  destroyChart('zeroAnnual');
+  charts.zeroAnnual=new Chart(el('zeroAnnual'),{
+    data:{labels:zYears,datasets:[
+      {type:'bar',label:'Dygn med nollgenomgång',data:zVals,borderWidth:0},
+      {type:'line',label:'Linjär trend',data:linearTrend(zYears,zVals),borderWidth:2,pointRadius:0,borderDash:[6,4]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'dygn'}}}}
+  });
+  el('zeroAnnualTrendText').textContent=trendRateText(zYears,zVals,'dygn');
   const tempCoverage=DATA.temperature.monthly.filter(r=>inYears(r,f));
   const zAllMonths=DATA.zero_crossings.filter(r=>inYears(r,f));
   const zm=[...Array(12)].map((_,i)=>{
@@ -219,15 +231,58 @@ function solarTimes(dateStr,lat=65.543,lon=22.124){
   const delta=Math.asin(Math.sin(lambda*rad)*Math.sin(23.44*rad));
   const h0=-0.833*rad;
   const cosOmega=(Math.sin(h0)-Math.sin(lat*rad)*Math.sin(delta))/(Math.cos(lat*rad)*Math.cos(delta));
-  if(cosOmega<-1||cosOmega>1)return {sunrise:null,sunset:null,dayLength:null};
+  if(cosOmega<-1)return {sunrise:null,sunset:null,dayLength:'24 h 00 min',sunriseMinutes:null,sunsetMinutes:null,polarDay:true,polarNight:false};
+  if(cosOmega>1)return {sunrise:null,sunset:null,dayLength:'0 h 00 min',sunriseMinutes:null,sunsetMinutes:null,polarDay:false,polarNight:true};
   const omega=Math.acos(cosOmega)*deg;
   const jSet=jTransit+omega/360;
   const jRise=jTransit-omega/360;
   const jdToDate=j=>new Date((j-2440587.5)*86400000);
-  const fmt=t=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hour12:false}).format(t);
-  const rise=jdToDate(jRise),set=jdToDate(jSet);
+  const parts=t=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(t);
+  const hm=t=>{const p=parts(t);const h=+p.find(x=>x.type==='hour').value,mn=+p.find(x=>x.type==='minute').value;return {text:String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0'),minutes:h*60+mn};};
+  const rise=jdToDate(jRise),set=jdToDate(jSet),r=hm(rise),s=hm(set);
   const mins=Math.round((set-rise)/60000);
-  return {sunrise:fmt(rise),sunset:fmt(set),dayLength:Math.floor(mins/60)+' h '+String(mins%60).padStart(2,'0')+' min'};
+  return {sunrise:r.text,sunset:s.text,dayLength:Math.floor(mins/60)+' h '+String(mins%60).padStart(2,'0')+' min',sunriseMinutes:r.minutes,sunsetMinutes:s.minutes,polarDay:false,polarNight:false};
+}
+function hourlyAverage(obs){
+  return hours.map((_,h)=>{
+    const vals=(obs||[]).filter(r=>+r.time.slice(0,2)===h).map(r=>+r.value).filter(Number.isFinite);
+    return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  });
+}
+function hourlySum(obs){
+  return hours.map((_,h)=>{
+    const vals=(obs||[]).filter(r=>+r.time.slice(0,2)===h).map(r=>+r.value).filter(Number.isFinite);
+    return vals.length?vals.reduce((a,b)=>a+b,0):null;
+  });
+}
+function hourlyWeather(obs){
+  return hours.map((_,h)=>{
+    const rows=(obs||[]).filter(r=>+r.time.slice(0,2)===h).sort((a,b)=>a.time.localeCompare(b.time));
+    return rows.length?String(rows[rows.length-1].code):null;
+  });
+}
+function sunHourFractions(sun){
+  if(sun.polarDay)return hours.map(()=>100);
+  if(sun.polarNight)return hours.map(()=>0);
+  if(sun.sunriseMinutes==null||sun.sunsetMinutes==null)return hours.map(()=>null);
+  return hours.map((_,h)=>{
+    const a=h*60,b=(h+1)*60;
+    let overlap=0;
+    if(sun.sunsetMinutes>=sun.sunriseMinutes){
+      overlap=Math.max(0,Math.min(b,sun.sunsetMinutes)-Math.max(a,sun.sunriseMinutes));
+    }else{
+      overlap=Math.max(0,Math.min(b,sun.sunsetMinutes)-a)+Math.max(0,b-Math.max(a,sun.sunriseMinutes));
+    }
+    return Math.round(100*overlap/60);
+  });
+}
+function alignedHourlyOptions(yTitle,max=null,tooltipLabel=null){
+  return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:tooltipLabel?{callbacks:{label:tooltipLabel}}:undefined},
+    scales:{
+      x:{grid:{display:false},offset:false,ticks:{autoSkip:false,maxRotation:0,minRotation:0,callback:(v,i)=>i%2===0?hours[i]:''}},
+      y:{beginAtZero:max!=null,...(max!=null?{max}:{}),title:{display:true,text:yTitle},afterFit:s=>{s.width=72;}}
+    }};
 }
 async function loadDateWeather(dateStr){
   if(!dateStr)return;
@@ -242,32 +297,49 @@ async function loadDateWeather(dateStr){
     const day=dateYearCache[year].days[dateStr];
     if(!day)throw new Error('Inga observationer för valt datum.');
     el('dateWeatherStatus').textContent=dateStr;
-    const temps=day.temperature||[];
-    lineChart('dateTemp',temps.map(r=>r.time),[{label:'Temperatur',data:temps.map(r=>r.value),pointRadius:1}],'°C');
-    const tvals=temps.map(r=>r.value).filter(Number.isFinite);
+
+    const tempHourly=hourlyAverage(day.temperature||[]);
+    const tvals=(day.temperature||[]).map(r=>+r.value).filter(Number.isFinite);
     const minT=tvals.length?Math.min(...tvals):null,maxT=tvals.length?Math.max(...tvals):null;
-    const sun=solarTimes(dateStr);
+    destroyChart('dateTemp');
+    charts.dateTemp=new Chart(el('dateTemp'),{type:'line',data:{labels:hours,datasets:[{data:tempHourly,borderWidth:2,pointRadius:2,tension:.15}]},options:alignedHourlyOptions('°C')});
+
+    const sun=solarTimes(dateStr),sunFractions=sunHourFractions(sun);
+    destroyChart('dateSun');
+    charts.dateSun=new Chart(el('dateSun'),{type:'bar',data:{labels:hours,datasets:[{data:sunFractions,borderWidth:0,categoryPercentage:1,barPercentage:1}]},
+      options:alignedHourlyOptions('%',100,c=>c.parsed.y+' % av timmen')});
+
+    const precipHourly=hourlySum(day.precipitation_hourly||[]);
+    destroyChart('datePrecip');
+    charts.datePrecip=new Chart(el('datePrecip'),{type:'bar',data:{labels:hours,datasets:[{data:precipHourly,borderWidth:0,categoryPercentage:1,barPercentage:1}]},
+      options:alignedHourlyOptions('mm',null,c=>(c.parsed.y??0).toLocaleString('sv-SE')+' mm')});
+
     el('dateSummary').innerHTML='<table><tbody>'+
-      '<tr><th>Nederbörd</th><td>'+(day.precipitation_mm==null?'–':day.precipitation_mm.toLocaleString('sv-SE')+' mm')+'</td></tr>'+
+      '<tr><th>Dygnsnederbörd</th><td>'+(day.precipitation_mm==null?'–':day.precipitation_mm.toLocaleString('sv-SE')+' mm')+'</td></tr>'+
       '<tr><th>Snödjup</th><td>'+(day.snow_cm==null?'–':day.snow_cm.toLocaleString('sv-SE')+' cm')+'</td></tr>'+
       '<tr><th>Temperatur min</th><td>'+(minT==null?'–':minT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
       '<tr><th>Temperatur max</th><td>'+(maxT==null?'–':maxT.toLocaleString('sv-SE')+' °C')+'</td></tr>'+
-      '<tr><th>Soluppgång</th><td>'+(sun.sunrise??'–')+'</td></tr>'+
-      '<tr><th>Solnedgång</th><td>'+(sun.sunset??'–')+'</td></tr>'+
+      '<tr><th>Soluppgång</th><td>'+(sun.sunrise??(sun.polarDay?'Midnattssol':'–'))+'</td></tr>'+
+      '<tr><th>Solnedgång</th><td>'+(sun.sunset??(sun.polarDay?'Midnattssol':'–'))+'</td></tr>'+
       '<tr><th>Dagslängd</th><td>'+(sun.dayLength??'–')+'</td></tr>'+
       '</tbody></table><p class="hint">Soltider beräknade för Luleå-Kallax (65,5430° N, 22,1240° Ö) och visas i svensk lokal tid.</p>';
-    const obs=(day.weather||[]).slice().sort((a,b)=>a.time.localeCompare(b.time));
+
+    const weatherByHour=hourlyWeather(day.weather||[]);
+    const codes=[...new Set(weatherByHour.filter(Boolean))];
     destroyChart('dateWeather');
-    const labels=obs.map(r=>r.time);
-    const codes=[...new Set(obs.map(r=>String(r.code)))];
-    const datasets=codes.map(code=>({label:weatherPhenomenon(code)+' (kod '+code+')',data:obs.map(r=>String(r.code)===code?100:null),borderWidth:0,categoryPercentage:1,barPercentage:1}));
-    charts.dateWeather=new Chart(el('dateWeather'),{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,
+    const datasets=codes.map(code=>({label:weatherPhenomenon(code)+' (kod '+code+')',data:weatherByHour.map(c=>c===code?100:null),borderWidth:0,categoryPercentage:1,barPercentage:1}));
+    charts.dateWeather=new Chart(el('dateWeather'),{type:'bar',data:{labels:hours,datasets},options:{
+      ...alignedHourlyOptions('registrerat väder',100),
       plugins:{legend:{display:codes.length<=10},tooltip:{callbacks:{label:c=>c.dataset.label}}},
-      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,min:0,max:100,ticks:{callback:v=>v+' %'},title:{display:true,text:'registrerat väder'}}}}});
+      scales:{
+        x:{stacked:true,grid:{display:false},offset:false,ticks:{autoSkip:false,maxRotation:0,minRotation:0,callback:(v,i)=>i%2===0?hours[i]:''}},
+        y:{stacked:true,min:0,max:100,ticks:{callback:v=>v+' %'},title:{display:true,text:'registrerat väder'},afterFit:s=>{s.width=72;}}
+      }
+    }});
   }catch(err){
     el('dateWeatherStatus').textContent=err.message;
     el('dateSummary').innerHTML='<p class="hint">'+err.message+'</p>';
-    destroyChart('dateTemp');destroyChart('dateWeather');
+    ['dateTemp','dateSun','datePrecip','dateWeather'].forEach(destroyChart);
   }
 }
 function setupDateWeather(){
