@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -73,12 +73,12 @@
 
   <section id="page-weather" class="page">
     <div class="page-tools">
-      <label>Väderkod<select id="weatherCode"><option value="all">Alla koder</option></select></label>
+      <label>Vädertyp<select id="weatherCode"><option value="all">Alla vädertyper</option></select></label>
       <a id="weatherSource" target="_blank" rel="noopener">SMHI:s kodtabell</a>
     </div>
     <div class="chart-card tall">
       <h2 id="weatherTitle">Rådande väder – fördelning per år</h2>
-      <p id="weatherHint" class="hint">Alla koder visas som andel av årets observationer. Välj en kod ovan om du vill följa bara den.</p>
+      <p id="weatherHint" class="hint">Väderkoder med samma betydelse slås ihop till gemensamma vädertyper. Välj en vädertyp ovan om du vill följa bara den.</p>
       <canvas id="weatherCodes"></canvas>
     </div>
   </section>
@@ -137,5 +137,5 @@
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body></html>
