@@ -6602,3 +6602,4 @@ station_id,station_name,parameter_id,parameter_name,parameter_summary,unit,datet
 162860,Luleå-Kallax Flygplats,9,Lufttryck reducerat havsytans nivå,"vid havsytans nivå, momentanvärde, 1 gång/tim",hektopascal,2026-10-03T06:00:00Z,2026-10-03T08:00:00+02:00,1791007200000,,1020.6,1020.6,G,,latest-months
 162860,Luleå-Kallax Flygplats,9,Lufttryck reducerat havsytans nivå,"vid havsytans nivå, momentanvärde, 1 gång/tim",hektopascal,2026-10-03T07:00:00Z,2026-10-03T09:00:00+02:00,1791010800000,,1019.9,1019.9,G,,latest-months
 162860,Luleå-Kallax Flygplats,9,Lufttryck reducerat havsytans nivå,"vid havsytans nivå, momentanvärde, 1 gång/tim",hektopascal,2026-10-03T08:00:00Z,2026-10-03T10:00:00+02:00,1791014400000,,1019.5,1019.5,G,,latest-months
+162860,Luleå-Kallax Flygplats,9,Lufttryck reducerat havsytans nivå,"vid havsytans nivå, momentanvärde, 1 gång/tim",hektopascal,2026-10-03T09:00:00Z,2026-10-03T11:00:00+02:00,1791018000000,,1019.0,1019.0,G,,latest-months
