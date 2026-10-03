@@ -256,8 +256,31 @@ function updateRangeTrack(){
   const left=((a-min)/(max-min))*100,right=100-((b-min)/(max-min))*100;
   el('rangeSelected').style.left=left+'%';el('rangeSelected').style.right=right+'%';
 }
-function syncYear(source,value){let a=+el('yearFrom').value,b=+el('yearTo').value;if(source==='from')a=+value;else b=+value;if(a>b){if(source==='from')b=a;else a=b;}el('yearFrom').value=a;el('yearTo').value=b;el('rangeFrom').value=a;el('rangeTo').value=b;el('rangeFromLabel').textContent=a;el('rangeToLabel').textContent=b;updateRangeTrack();render();}
+function syncYear(source,value,renderNow=true){
+  let a=+el('yearFrom').value,b=+el('yearTo').value;
+  if(source==='from')a=+value;else b=+value;
+  if(a>b){if(source==='from')b=a;else a=b;}
+  el('yearFrom').value=a;el('yearTo').value=b;
+  el('rangeFrom').value=a;el('rangeTo').value=b;
+  el('rangeFromLabel').textContent=a;el('rangeToLabel').textContent=b;
+  updateRangeTrack();
+  if(renderNow)render();
+}
 function setupTabs(){document.querySelectorAll('#tabs button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));btn.classList.add('active');el('page-'+btn.dataset.page).classList.add('active');setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),50);}));}
-function setupFilters(){const years=DATA.years,min=years[0],max=years[years.length-1];['yearFrom','yearTo'].forEach(id=>el(id).innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join(''));el('yearFrom').value=min;el('yearTo').value=max;['rangeFrom','rangeTo'].forEach(id=>{el(id).min=min;el(id).max=max;el(id).step=1;});el('rangeFrom').value=min;el('rangeTo').value=max;el('rangeFromLabel').textContent=min;el('rangeToLabel').textContent=max;updateRangeTrack();el('yearFrom').addEventListener('change',e=>syncYear('from',e.target.value));el('yearTo').addEventListener('change',e=>syncYear('to',e.target.value));el('rangeFrom').addEventListener('input',e=>syncYear('from',e.target.value));el('rangeTo').addEventListener('input',e=>syncYear('to',e.target.value));el('month').addEventListener('change',render);el('tempMetric').addEventListener('change',render);el('weatherCode').addEventListener('change',render);el('resetFilters').addEventListener('click',()=>{syncYear('from',min);syncYear('to',max);el('month').value='0';render();});}
+function setupFilters(){const years=DATA.years,min=years[0],max=years[years.length-1];['yearFrom','yearTo'].forEach(id=>el(id).innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join(''));el('yearFrom').value=min;el('yearTo').value=max;['rangeFrom','rangeTo'].forEach(id=>{el(id).min=min;el(id).max=max;el(id).step=1;});el('rangeFrom').value=min;el('rangeTo').value=max;el('rangeFromLabel').textContent=min;el('rangeToLabel').textContent=max;updateRangeTrack();el('yearFrom').addEventListener('change',e=>syncYear('from',e.target.value,true));
+el('yearTo').addEventListener('change',e=>syncYear('to',e.target.value,true));
+el('rangeFrom').addEventListener('input',e=>syncYear('from',e.target.value,false));
+el('rangeTo').addEventListener('input',e=>syncYear('to',e.target.value,false));
+el('rangeFrom').addEventListener('change',e=>syncYear('from',e.target.value,true));
+el('rangeTo').addEventListener('change',e=>syncYear('to',e.target.value,true));
+el('month').addEventListener('change',render);
+el('tempMetric').addEventListener('change',render);
+el('weatherCode').addEventListener('change',render);
+el('resetFilters').addEventListener('click',()=>{
+  el('yearFrom').value=min;el('yearTo').value=max;
+  el('rangeFrom').value=min;el('rangeTo').value=max;
+  el('rangeFromLabel').textContent=min;el('rangeToLabel').textContent=max;
+  el('month').value='0';updateRangeTrack();render();
+});}
 function setupWeatherCodes(){const codes=[...new Set(DATA.weather.codes.map(r=>String(r.code)))].sort((a,b)=>Number(a)-Number(b));el('weatherCode').innerHTML='<option value="all">Alla koder</option>'+codes.map(c=>'<option value="'+c+'">'+c+' – '+(DATA.weather.labels[c]||('Kod '+c))+'</option>').join('');el('weatherCode').value='all';}
 fetch('dashboard_data.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('dashboard_data.json saknas');return r.json();}).then(d=>{DATA=d;el('updated').textContent='Data uppdaterad: '+(d.generated_at||'okänt');el('weatherSource').href=d.weather.source_url;setupWeatherCodes();setupTemp2Slider();setupTabs();setupFilters();setupDateWeather();render();}).catch(err=>{document.querySelector('main').innerHTML='<div class="chart-card"><h2>Rapportdata saknas</h2><p>'+err.message+'</p></div>';});
