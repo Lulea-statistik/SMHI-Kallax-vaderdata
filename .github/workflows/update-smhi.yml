@@ -48,7 +48,10 @@ jobs:
           RUN_MODE: ${{ github.event.inputs.mode || 'auto' }}
         run: python scripts/fetch_smhi.py --mode "$RUN_MODE"
 
-      - name: Commit updated data
+      - name: Build GitHub Pages report data
+        run: python scripts/build_dashboard_data.py
+
+      - name: Commit updated data and report
         shell: bash
         run: |
           if [ -z "$(git status --porcelain)" ]; then
@@ -58,7 +61,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data metadata
+          git add data metadata docs/dashboard_data.json
           git commit -m "Update SMHI Kallax observations"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
