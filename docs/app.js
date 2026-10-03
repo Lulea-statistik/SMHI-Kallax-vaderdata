@@ -61,19 +61,36 @@ function weatherChart(rows){
   }
 }
 function aggregateMonthlyMean(rows,key='avg'){return [...Array(12)].map((_,i)=>{const a=rows.filter(r=>r.month===i+1).map(r=>r[key]).filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;});}
-function linearTrend(xs,ys){
-  const pts=xs.map((x,i)=>[+x,ys[i]]).filter(p=>p[1]!=null&&Number.isFinite(p[1]));
-  if(pts.length<2)return ys.map(()=>null);
+function linearRegression(xs,ys){
+  const pts=xs.map((x,i)=>[+x,ys[i]]).filter(p=>Number.isFinite(p[0])&&p[1]!=null&&Number.isFinite(p[1]));
+  if(pts.length<2)return null;
   const xm=pts.reduce((s,p)=>s+p[0],0)/pts.length,ym=pts.reduce((s,p)=>s+p[1],0)/pts.length;
-  const den=pts.reduce((s,p)=>s+(p[0]-xm)*(p[0]-xm),0)||1;
+  const den=pts.reduce((s,p)=>s+(p[0]-xm)*(p[0]-xm),0);
+  if(!den)return null;
   const slope=pts.reduce((s,p)=>s+(p[0]-xm)*(p[1]-ym),0)/den,intercept=ym-slope*xm;
-  return xs.map(x=>slope*(+x)+intercept);
+  return {slope,intercept};
+}
+function linearTrend(xs,ys){
+  const reg=linearRegression(xs,ys);
+  return reg?xs.map(x=>reg.slope*(+x)+reg.intercept):ys.map(()=>null);
+}
+function trendRateText(xs,ys,unit,startLabel=null,endLabel=null){
+  const reg=linearRegression(xs,ys);
+  const valid=xs.map((x,i)=>({x:+x,y:ys[i],label:String(x)})).filter(p=>Number.isFinite(p.x)&&p.y!=null&&Number.isFinite(p.y));
+  if(!reg||valid.length<2)return 'För få datapunkter för linjär trend.';
+  const per10=reg.slope*10;
+  const n=Math.abs(per10);
+  const decimals=n>=100?0:n>=10?1:2;
+  const value=(per10>=0?'+':'')+per10.toLocaleString('sv-SE',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+  const from=startLabel??valid[0].label,to=endLabel??valid[valid.length-1].label;
+  return 'Från '+from+' till '+to+': '+value+' '+unit+' per 10 år (historisk linjär trend).';
 }
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=DATA.temperature.annual.filter(r=>inYears(r,f));const taYears=ta.map(r=>r.year),taVals=ta.map(r=>r[m]);
   lineChart('tempAnnual',taYears,[{label:name,data:taVals},{label:'Linjär trend',data:linearTrend(taYears,taVals),pointRadius:0,borderDash:[6,4]}],'°C');
   el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
+  el('tempAnnualTrendText').textContent=trendRateText(taYears,taVals,'°C');
   let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));if(f.month)tm=tm.filter(r=>r.month===f.month);
   const tMonthAgg=[...Array(12)].map((_,i)=>{
     const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;
@@ -95,6 +112,7 @@ function render(){
       plugins:{legend:{display:true}},
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'mm'}}}}
   });
+  el('precipAnnualTrendText').textContent=trendRateText(paYears,paVals,'mm');
   let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm',MONTH_GREEN);
 
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
@@ -114,6 +132,7 @@ function render(){
 
   const ha=DATA.humidity.annual.filter(r=>inYears(r,f));const haYears=ha.map(r=>r.year),haVals=ha.map(r=>r.avg);
   lineChart('humidityAnnual',haYears,[{label:'Årsmedel',data:haVals},{label:'Linjär trend',data:linearTrend(haYears,haVals),pointRadius:0,borderDash:[6,4]}],'%');
+  el('humidityAnnualTrendText').textContent=trendRateText(haYears,haVals,'procentenheter');
   let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%',MONTH_GREEN);
 
   const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));const sunYears=sunA.map(r=>r.year),sunVals=sunA.map(r=>r.hours);
@@ -127,6 +146,7 @@ function render(){
       plugins:{legend:{display:true}},
       scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'timmar'}}}}
   });
+  el('sunAnnualTrendText').textContent=trendRateText(sunYears,sunVals,'timmar');
   let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar',MONTH_GREEN);
 
   const snowA=DATA.snow.annual_mean.filter(r=>inYears(r,f)),snowMax=DATA.snow.annual_max.filter(r=>inYears(r,f));
@@ -140,6 +160,7 @@ function render(){
   const seasonYears=snowSeasons.map(s=>s.start_year);
   const seasonTrend=linearTrend(seasonYears,seasonVals);
   destroyChart('snowSeason');
+  el('snowSeasonTrendText').textContent=trendRateText(seasonYears,seasonVals,'dygn',seasonLabels[0]??null,seasonLabels[seasonLabels.length-1]??null);
   charts.snowSeason=new Chart(el('snowSeason'),{
     data:{labels:seasonLabels,datasets:[
       {type:'bar',label:'Säsongslängd',data:seasonVals,borderWidth:0},
@@ -161,6 +182,7 @@ function render(){
   const crossByYear={};DATA.zero_crossings.filter(r=>inYears(r,f)).forEach(r=>{if(!crossByYear[r.year])crossByYear[r.year]={sum:0,n:0};crossByYear[r.year].sum+=r.crossings;crossByYear[r.year].n++;});
   const trendYears=Object.keys(crossByYear).map(Number).sort((a,b)=>a-b),trendVals=trendYears.map(y=>crossByYear[y].sum/crossByYear[y].n);
   lineChart('zeroTrend',trendYears,[{label:'Genomsnitt',data:trendVals,pointRadius:2},{label:'Linjär trend',data:linearTrend(trendYears,trendVals),pointRadius:0,borderDash:[6,4]}],'genomgångar per dygn');
+  el('zeroTrendText').textContent=trendRateText(trendYears,trendVals,'genomgångar/dygn');
   el('zeroTable').innerHTML='<table><thead><tr><th>Datum</th><th>Min °C</th><th>Max °C</th><th>Antal genomgångar</th><th>Riktning</th><th>Observationer</th></tr></thead><tbody>'+z.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>'<tr><td>'+r.date+'</td><td>'+r.min+'</td><td>'+r.max+'</td><td>'+r.crossings+'</td><td>'+r.directions.join(', ')+'</td><td>'+r.observations+'</td></tr>').join('')+'</tbody></table>';
 
   el('coverage').innerHTML='<table><thead><tr><th>Parameter</th><th>Från</th><th>Till</th><th>Observationer</th></tr></thead><tbody>'+DATA.coverage.map(r=>'<tr><td>'+r.name+'</td><td>'+r.min_date+'</td><td>'+r.max_date+'</td><td>'+r.rows.toLocaleString('sv-SE')+'</td></tr>').join('')+'</tbody></table>';
