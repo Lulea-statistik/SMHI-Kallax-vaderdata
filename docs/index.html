@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SMHI Kallax – klimatrapport</title>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -42,7 +42,7 @@
   </section>
 
   <section id="page-temp1" class="page active">
-    <div class="page-tools"><label>Temperaturvärde<select id="tempMetric"><option value="avg">Medel</option><option value="min">Minimum</option><option value="max">Maximum</option></select></label></div>
+    <div class="page-tools"><label>Temperaturvärde<select id="tempMetric"><option value="avg">Medel</option><option value="avg_daily_min">Genomsnittligt dygnsminimum</option><option value="avg_daily_max">Genomsnittligt dygnsmaximum</option><option value="min">Absolut minimum</option><option value="max">Absolut maximum</option></select></label></div>
     <div class="chart-card"><h2 id="tempAnnualTitle">Genomsnittlig lufttemperatur per år</h2><canvas id="tempAnnual"></canvas></div>
     <div class="chart-card"><h2 id="tempMonthlyTitle">Genomsnittlig lufttemperatur per månad</h2><canvas id="tempMonthly"></canvas></div>
   </section>
@@ -116,5 +116,5 @@
 
   <section id="page-data" class="page"><div class="chart-card"><h2>Datatäckning</h2><div id="coverage"></div></div></section>
 </main>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body></html>
