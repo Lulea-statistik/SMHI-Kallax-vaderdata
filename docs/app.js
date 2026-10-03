@@ -55,6 +55,14 @@ function weatherChart(rows){
   }
 }
 function aggregateMonthlyMean(rows,key='avg'){return [...Array(12)].map((_,i)=>{const a=rows.filter(r=>r.month===i+1).map(r=>r[key]).filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;});}
+function linearTrend(xs,ys){
+  const pts=xs.map((x,i)=>[+x,ys[i]]).filter(p=>p[1]!=null&&Number.isFinite(p[1]));
+  if(pts.length<2)return ys.map(()=>null);
+  const xm=pts.reduce((s,p)=>s+p[0],0)/pts.length,ym=pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  const den=pts.reduce((s,p)=>s+(p[0]-xm)*(p[0]-xm),0)||1;
+  const slope=pts.reduce((s,p)=>s+(p[0]-xm)*(p[1]-ym),0)/den,intercept=ym-slope*xm;
+  return xs.map(x=>slope*(+x)+intercept);
+}
 function render(){
   const f=currentFilters(),m=temperatureMetric(),name=metricName(m);
   const ta=DATA.temperature.annual.filter(r=>inYears(r,f));lineChart('tempAnnual',ta.map(r=>r.year),[{label:'°C',data:ta.map(r=>r[m])}],'°C');el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
@@ -63,25 +71,47 @@ function render(){
   renderTemp2();
 
   const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));barChart('precipAnnual',pa.map(r=>r.year),pa.map(r=>r.sum),'mm');
-  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);lineChart('precipMonthly',months,[{label:'mm',data:aggregateMonthlyMean(pm,'sum')}],'mm');
+  let pm=DATA.precipitation.monthly_total.filter(r=>inYears(r,f));if(f.month)pm=pm.filter(r=>r.month===f.month);barChart('precipMonthly',months,aggregateMonthlyMean(pm,'sum'),'mm');
 
   let wc=DATA.weather.codes.filter(r=>inYears(r,f));if(f.month)wc=wc.filter(r=>r.month===f.month);weatherChart(wc);
 
-  const ws=DATA.wind.speed_annual.filter(r=>inYears(r,f)),wm=DATA.wind.daily_max_annual.filter(r=>inYears(r,f));lineChart('windSpeed',ws.map(r=>r.year),[{label:'Årsmedel',data:ws.map(r=>r.avg)},{label:'Årets högsta dygnsmaximum',data:ws.map(r=>{const x=wm.find(a=>a.year===r.year);return x?x.max:null;})}],'m/s');
+  const ws=DATA.wind.speed_annual.filter(r=>inYears(r,f)),wm=DATA.wind.daily_max_annual.filter(r=>inYears(r,f)),wg=DATA.wind.gust_max_annual.filter(r=>inYears(r,f));
+  lineChart('windSpeed',ws.map(r=>r.year),[
+    {label:'Årsmedel',data:ws.map(r=>r.avg)},
+    {label:'Årets högsta dygnsmaximum',data:ws.map(r=>{const x=wm.find(a=>a.year===r.year);return x?x.max:null;})},
+    {label:'Årets högsta byvind',data:ws.map(r=>{const x=wg.find(a=>a.year===r.year);return x?x.max:null;})}
+  ],'m/s');
 
   const wd=DATA.wind.direction_annual.filter(r=>inYears(r,f));destroyChart('windDirection');charts.windDirection=new Chart(el('windDirection'),{type:'line',data:{labels:wd.map(r=>r.year),datasets:[{data:wd.map(r=>r.avg),borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(wd[i].avg,String(wd[i].year));}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
   const wdm=DATA.wind.direction_monthly.filter(r=>inYears(r,f));const monthly=[...Array(12)].map((_,i)=>circularFromParts(wdm.filter(r=>r.month===i+1)));destroyChart('windDirectionMonthly');charts.windDirectionMonthly=new Chart(el('windDirectionMonthly'),{type:'line',data:{labels:months,datasets:[{data:monthly,borderWidth:2,pointRadius:2,tension:.1}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},onHover:(e,pts)=>{if(pts.length){const i=pts[0].index;updateCompass(monthly[i],months[i]);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+'° ('+directionName(c.parsed.y)+')'}}},scales:{x:{grid:{display:false}},y:{min:0,max:360,title:{display:true,text:'grader'},ticks:{stepSize:45,callback:v=>v+'° '+directionName(v)}}}}});
 
   const va=DATA.visibility.annual.filter(r=>inYears(r,f));lineChart('visibilityAnnual',va.map(r=>r.year),[{label:'meter',data:va.map(r=>r.avg)}],'meter');
-  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);lineChart('visibilityMonthly',months,[{label:'meter',data:aggregateMonthlyMean(vm)}],'meter');
+  let vm=DATA.visibility.monthly.filter(r=>inYears(r,f));if(f.month)vm=vm.filter(r=>r.month===f.month);barChart('visibilityMonthly',months,aggregateMonthlyMean(vm),'meter');
 
   const ha=DATA.humidity.annual.filter(r=>inYears(r,f));lineChart('humidityAnnual',ha.map(r=>r.year),[{label:'%',data:ha.map(r=>r.avg)}],'%');
-  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);lineChart('humidityMonthly',months,[{label:'%',data:aggregateMonthlyMean(hm)}],'%');
+  let hm=DATA.humidity.monthly.filter(r=>inYears(r,f));if(f.month)hm=hm.filter(r=>r.month===f.month);barChart('humidityMonthly',months,aggregateMonthlyMean(hm),'%');
+
+  const sunA=DATA.sunshine.annual.filter(r=>inYears(r,f));barChart('sunAnnual',sunA.map(r=>r.year),sunA.map(r=>r.hours),'timmar');
+  let sunM=DATA.sunshine.monthly_total.filter(r=>inYears(r,f));if(f.month)sunM=sunM.filter(r=>r.month===f.month);barChart('sunMonthly',months,aggregateMonthlyMean(sunM,'hours'),'timmar');
+
+  const snowA=DATA.snow.annual_mean.filter(r=>inYears(r,f)),snowMax=DATA.snow.annual_max.filter(r=>inYears(r,f));
+  lineChart('snowAnnual',snowA.map(r=>r.year),[
+    {label:'Årsmedel',data:snowA.map(r=>r.avg)},
+    {label:'Årets största snödjup',data:snowA.map(r=>{const x=snowMax.find(a=>a.year===r.year);return x?x.max:null;})}
+  ],'cm');
+  let snowM=DATA.snow.monthly.filter(r=>inYears(r,f));if(f.month)snowM=snowM.filter(r=>r.month===f.month);barChart('snowMonthly',months,aggregateMonthlyMean(snowM),'cm');
 
   let z=DATA.zero_crossings.filter(r=>inYears(r,f));if(f.month)z=z.filter(r=>r.month===f.month);
   const zy={};z.forEach(r=>zy[r.year]=(zy[r.year]||0)+1);const zYears=Object.keys(zy).map(Number).sort((a,b)=>a-b);barChart('zeroAnnual',zYears,zYears.map(y=>zy[y]),'dygn');
-  const selectedYears=DATA.years.filter(y=>y>=f.from&&y<=f.to);const denom=Math.max(1,selectedYears.length);
-  const zm=[...Array(12)].map((_,i)=>z.filter(r=>r.month===i+1).length/denom);barChart('zeroMonthly',months,zm,'dygn per år');
+  const tempCoverage=DATA.temperature.monthly.filter(r=>inYears(r,f));
+  const zm=[...Array(12)].map((_,i)=>{
+    const yearsCovered=new Set(tempCoverage.filter(r=>r.month===i+1).map(r=>r.year)).size;
+    return yearsCovered?z.filter(r=>r.month===i+1).length/yearsCovered:null;
+  });
+  barChart('zeroMonthly',months,zm,'dygn per år');
+  const crossByYear={};DATA.zero_crossings.filter(r=>inYears(r,f)).forEach(r=>{if(!crossByYear[r.year])crossByYear[r.year]={sum:0,n:0};crossByYear[r.year].sum+=r.crossings;crossByYear[r.year].n++;});
+  const trendYears=Object.keys(crossByYear).map(Number).sort((a,b)=>a-b),trendVals=trendYears.map(y=>crossByYear[y].sum/crossByYear[y].n);
+  lineChart('zeroTrend',trendYears,[{label:'Genomsnitt',data:trendVals,pointRadius:2},{label:'Linjär trend',data:linearTrend(trendYears,trendVals),pointRadius:0,borderDash:[6,4]}],'genomgångar per dygn');
   el('zeroTable').innerHTML='<table><thead><tr><th>Datum</th><th>Min °C</th><th>Max °C</th><th>Antal genomgångar</th><th>Riktning</th><th>Observationer</th></tr></thead><tbody>'+z.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>'<tr><td>'+r.date+'</td><td>'+r.min+'</td><td>'+r.max+'</td><td>'+r.crossings+'</td><td>'+r.directions.join(', ')+'</td><td>'+r.observations+'</td></tr>').join('')+'</tbody></table>';
 
   el('coverage').innerHTML='<table><thead><tr><th>Parameter</th><th>Från</th><th>Till</th><th>Observationer</th></tr></thead><tbody>'+DATA.coverage.map(r=>'<tr><td>'+r.name+'</td><td>'+r.min_date+'</td><td>'+r.max_date+'</td><td>'+r.rows.toLocaleString('sv-SE')+'</td></tr>').join('')+'</tbody></table>';
