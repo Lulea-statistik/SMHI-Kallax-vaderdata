@@ -9,7 +9,13 @@ function directionName(deg){const names=['N','NO','O','SO','S','SV','V','NV'];re
 function updateCompass(deg,label=''){if(deg==null||Number.isNaN(+deg))return;const d=((+deg%360)+360)%360;el('windArrow').style.transform='translate(-50%,-100%) rotate('+d+'deg)';el('windCompassText').textContent=(label?label+' · ':'')+d.toFixed(0)+'° = vind från '+directionName(d);}
 function circularFromParts(rows){let s=0,c=0,n=0;rows.forEach(r=>{s+=r.sin_sum||0;c+=r.cos_sum||0;n+=r.count||0;});if(!n||(!s&&!c))return null;let d=Math.atan2(s,c)*180/Math.PI;d=(d+360)%360;return d===0?360:d;}
 function temperatureMetric(){return el('tempMetric').value;}
-function metricName(m){return m==='min'?'Minimum':m==='max'?'Maximum':'Genomsnittlig';}
+function metricName(m){
+  if(m==='min')return 'Absolut minimum';
+  if(m==='max')return 'Absolut maximum';
+  if(m==='avg_daily_min')return 'Genomsnittligt dygnsminimum';
+  if(m==='avg_daily_max')return 'Genomsnittligt dygnsmaximum';
+  return 'Genomsnittlig';
+}
 function weatherPhenomenon(code){
   let n=Number(code); if(!Number.isFinite(n)) return 'Okänt väderfenomen';
   if(n>=100) n=n%100;
@@ -69,7 +75,13 @@ function render(){
   lineChart('tempAnnual',taYears,[{label:name,data:taVals},{label:'Linjär trend',data:linearTrend(taYears,taVals),pointRadius:0,borderDash:[6,4]}],'°C');
   el('tempAnnualTitle').textContent=name+' lufttemperatur per år';
   let tm=DATA.temperature.monthly.filter(r=>inYears(r,f));if(f.month)tm=tm.filter(r=>r.month===f.month);
-  const tMonthAgg=[...Array(12)].map((_,i)=>{const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;return m==='min'?Math.min(...rows.map(r=>r.min)):m==='max'?Math.max(...rows.map(r=>r.max)):rows.reduce((s,r)=>s+r.avg,0)/rows.length;});lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
+  const tMonthAgg=[...Array(12)].map((_,i)=>{
+    const rows=tm.filter(r=>r.month===i+1);if(!rows.length)return null;
+    if(m==='min')return Math.min(...rows.map(r=>r.min));
+    if(m==='max')return Math.max(...rows.map(r=>r.max));
+    const vals=rows.map(r=>r[m]).filter(v=>v!=null);
+    return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+  });lineChart('tempMonthly',months,[{label:'°C',data:tMonthAgg,borderColor:MONTH_GREEN,backgroundColor:MONTH_GREEN}],'°C');el('tempMonthlyTitle').textContent=name+' lufttemperatur per månad';
   renderTemp2();
 
   const pa=DATA.precipitation.annual.filter(r=>inYears(r,f));const paYears=pa.map(r=>r.year),paVals=pa.map(r=>r.sum);

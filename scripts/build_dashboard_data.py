@@ -27,14 +27,41 @@ def read_param(pid:int):
 def mean(v):return sum(v)/len(v) if v else None
 def r2(x):return None if x is None else round(x,2)
 def aggregate_temp(rows):
-    y=defaultdict(list);ym=defaultdict(list)
-    for d,v in rows:y[d.year].append(v);ym[(d.year,d.month)].append(v)
-    def rec(k,vals,monthly=False):
-        out={'avg':r2(mean(vals)),'min':r2(min(vals)),'max':r2(max(vals))}
-        if monthly:out.update(year=k[0],month=k[1])
-        else:out.update(year=k)
-        return out
-    return [rec(k,v) for k,v in sorted(y.items())],[rec(k,v,True) for k,v in sorted(ym.items())]
+    y=defaultdict(list);ym=defaultdict(list);daily=defaultdict(list)
+    for d,v in rows:
+        y[d.year].append(v);ym[(d.year,d.month)].append(v);daily[d.date()].append(v)
+
+    daily_min={day:min(vals) for day,vals in daily.items() if vals}
+    daily_max={day:max(vals) for day,vals in daily.items() if vals}
+    y_daily_min=defaultdict(list);y_daily_max=defaultdict(list)
+    ym_daily_min=defaultdict(list);ym_daily_max=defaultdict(list)
+    for day,val in daily_min.items():
+        y_daily_min[day.year].append(val);ym_daily_min[(day.year,day.month)].append(val)
+    for day,val in daily_max.items():
+        y_daily_max[day.year].append(val);ym_daily_max[(day.year,day.month)].append(val)
+
+    annual=[]
+    for year,vals in sorted(y.items()):
+        annual.append({
+            'year':year,
+            'avg':r2(mean(vals)),
+            'min':r2(min(vals)),
+            'max':r2(max(vals)),
+            'avg_daily_min':r2(mean(y_daily_min[year])),
+            'avg_daily_max':r2(mean(y_daily_max[year]))
+        })
+
+    monthly=[]
+    for k,vals in sorted(ym.items()):
+        monthly.append({
+            'year':k[0],'month':k[1],
+            'avg':r2(mean(vals)),
+            'min':r2(min(vals)),
+            'max':r2(max(vals)),
+            'avg_daily_min':r2(mean(ym_daily_min[k])),
+            'avg_daily_max':r2(mean(ym_daily_max[k]))
+        })
+    return annual,monthly
 def aggregate_mean(rows):
     y=defaultdict(list);ym=defaultdict(list)
     for d,v in rows:y[d.year].append(v);ym[(d.year,d.month)].append(v)
